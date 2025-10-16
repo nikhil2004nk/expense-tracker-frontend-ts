@@ -1,0 +1,25 @@
+{
+  "months": [
+    { "month": "Jan", "income": 65000, "expense": 42000 },
+    { "month": "Feb", "income": 65000, "expense": 38000 },
+    { "month": "Mar", "income": 70000, "expense": 45000 },
+    { "month": "Apr", "income": 68000, "expense": 41000 },
+    { "month": "May", "income": 72000, "expense": 48000 },
+    { "month": "Jun", "income": 70000, "expense": 43000 },
+    { "month": "Jul", "income": 73000, "expense": 50000 },
+    { "month": "Aug", "income": 75000, "expense": 52000 },
+    { "month": "Sep", "income": 74000, "expense": 47000 },
+    { "month": "Oct", "income": 76000, "expense": 49000 },
+    { "month": "Nov", "income": 75000, "expense": 48000 },
+    { "month": "Dec", "income": 80000, "expense": 55000 }
+  ],
+  "categories": [
+    { "name": "Rent", "value": 18000 },
+    { "name": "Groceries", "value": 12000 },
+    { "name": "Transport", "value": 8000 },
+    { "name": "Utilities", "value": 5000 },
+    { "name": "Food & Dining", "value": 10000 },
+    { "name": "Entertainment", "value": 6000 },
+    { "name": "Healthcare", "value": 4000 }
+  ]
+}
