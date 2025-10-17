@@ -1,11 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { fetchTransactions, deleteTransaction, seedDemoIfEmpty, type Transaction } from '../../services/transactions'
 import { useToast } from '../ToastProvider'
 import { LoaderCard, ConfirmModal } from '../common'
 import { useDebounce } from '../../hooks/useDebounce'
 import { formatCurrencyWithSymbol } from '../../utils/currency'
 
-export default function TransactionList({ onEdit }: { onEdit: (t: Transaction) => void }) {
+export type TransactionListRef = {
+  refresh: () => Promise<void>
+}
+
+type TransactionListProps = {
+  onEdit: (t: Transaction) => void
+}
+
+const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ onEdit }, ref) => {
   const { show } = useToast()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
@@ -15,30 +23,48 @@ export default function TransactionList({ onEdit }: { onEdit: (t: Transaction) =
 
   const debouncedCategoryFilter = useDebounce(categoryFilter, 300)
 
+  const loadTransactions = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const list = await fetchTransactions({ signal })
+      setTransactions(list)
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        show(e.message || 'Failed to load transactions', { type: 'error' })
+      }
+    }
+  }, [show])
+
   useEffect(() => {
     let active = true
     const controller = new AbortController()
     seedDemoIfEmpty()
-    fetchTransactions({ signal: controller.signal })
-      .then((list) => { if (active) setTransactions(list) })
-      .catch((e: any) => { if (active) show(e.message || 'Failed to load', { type: 'error' }) })
+    setLoading(true)
+    loadTransactions(controller.signal)
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false; controller.abort() }
-  }, [show])
+  }, [loadTransactions])
+
+  // Expose refresh method via ref
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      await loadTransactions()
+    }
+  }), [loadTransactions])
 
   function handleDelete(id: string) {
     setDeleteConfirmId(id)
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     const id = deleteConfirmId!
     setDeleteConfirmId(null)
-    deleteTransaction(id)
-      .then(() => {
-        setTransactions((t) => t.filter((x) => x.id !== id))
-        show('Transaction deleted', { type: 'success' })
-      })
-      .catch((e: any) => show(e.message || 'Delete failed', { type: 'error' }))
+    try {
+      await deleteTransaction(id)
+      setTransactions((t) => t.filter((x) => x.id !== id))
+      show('Transaction deleted', { type: 'success' })
+    } catch (e: any) {
+      show(e.message || 'Delete failed', { type: 'error' })
+    }
   }
 
   const filteredSorted = useMemo(() => {
@@ -206,4 +232,8 @@ export default function TransactionList({ onEdit }: { onEdit: (t: Transaction) =
       />
     </>
   )
-}
+})
+
+TransactionList.displayName = 'TransactionList'
+
+export default TransactionList

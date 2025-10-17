@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import TransactionForm from '../components/transactions/TransactionForm'
-import TransactionList from '../components/transactions/TransactionList'
+import TransactionList, { type TransactionListRef } from '../components/transactions/TransactionList'
 import { createTransaction, updateTransaction, type Transaction } from '../services/transactions'
 
 export default function Transactions() {
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [saving, setSaving] = useState(false)
+  const listRef = useRef<TransactionListRef>(null)
 
   async function handleSubmit(payload: { amount: number; category: string; date: string; notes: string; receiptUrl: string }) {
     setSaving(true)
@@ -16,6 +17,8 @@ export default function Transactions() {
       } else {
         await createTransaction(payload)
       }
+      // Refresh the list after successful create/update
+      await listRef.current?.refresh()
     } finally {
       setSaving(false)
     }
@@ -37,7 +40,7 @@ export default function Transactions() {
         <TransactionForm defaultValues={editing || undefined} onSubmit={handleSubmit} submitting={saving} />
       </div>
 
-      <TransactionList onEdit={(t) => setEditing(t)} />
+      <TransactionList ref={listRef} onEdit={(t) => setEditing(t)} />
     </div>
   )
 }
