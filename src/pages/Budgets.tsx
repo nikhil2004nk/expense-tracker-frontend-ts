@@ -1,25 +1,41 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '../components/common'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useToast } from '../components/ToastProvider'
 import { getCurrencySymbol, formatCurrencyWithSymbol } from '../utils/currency'
+import { budgetService } from '../services/budgets'
+import type { Budget } from '../services/budgets'
 
 export default function Budgets() {
   const { show } = useToast()
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingBudget, setEditingBudget] = useState<null | { id: number; category: string; spent: number; budget: number; createdAt: string }>(null)
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null)
   const [formData, setFormData] = useState({ category: '', amount: '' })
   const [formErrors, setFormErrors] = useState<{ category?: string; amount?: string }>({})
+  const [budgetData, setBudgetData] = useState<Budget[]>([])
+  const [loading, setLoading] = useState(false)
 
   const [userPreferences] = useLocalStorage('userPreferences', { currency: 'INR' })
   const currencySymbol = getCurrencySymbol(userPreferences.currency)
 
-  const [budgetData, setBudgetData] = useLocalStorage('budgets', [
-    { id: 1, category: 'Groceries', spent: 9500, budget: 12000, createdAt: new Date().toISOString() },
-    { id: 2, category: 'Entertainment', spent: 4500, budget: 6000, createdAt: new Date().toISOString() },
-    { id: 3, category: 'Transport', spent: 6000, budget: 8000, createdAt: new Date().toISOString() },
-    { id: 4, category: 'Food & Dining', spent: 11000, budget: 10000, createdAt: new Date().toISOString() },
-  ])
+  // Load budgets on component mount
+  useEffect(() => {
+    loadBudgets()
+  }, [])
+
+  const loadBudgets = async () => {
+    try {
+      setLoading(true)
+      const budgets = await budgetService.getAll()
+      setBudgetData(budgets)
+    } catch (error: any) {
+      console.error('Failed to load budgets:', error)
+      const message = error.message || 'Failed to load budgets'
+      show(message, { type: 'error' })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getProgressPercentage = (spent: number, budget: number) => Math.min((spent / budget) * 100, 100)
   const getProgressColor = (spent: number, budget: number) => {
@@ -63,29 +79,50 @@ export default function Budgets() {
     setIsModalOpen(true)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) return
     try {
+      setLoading(true)
       if (editingBudget) {
-        setBudgetData((prev: any[]) => prev.map((b) => (b.id === editingBudget.id ? { ...b, category: formData.category.trim(), budget: parseFloat(formData.amount), updatedAt: new Date().toISOString() } : b)))
+        await budgetService.update(editingBudget.id, {
+          category: formData.category.trim(),
+          amount: parseFloat(formData.amount),
+        })
         show(`Budget "${formData.category}" updated successfully!`, { type: 'success' })
       } else {
-        const newBudget = { id: Date.now(), category: formData.category.trim(), spent: 0, budget: parseFloat(formData.amount), createdAt: new Date().toISOString() }
-        setBudgetData((prev: any[]) => [...prev, newBudget])
+        await budgetService.create({
+          category: formData.category.trim(),
+          amount: parseFloat(formData.amount),
+        })
         show(`Budget "${formData.category}" created successfully!`, { type: 'success' })
       }
+      await loadBudgets() // Reload budgets from server
       setIsModalOpen(false)
       resetForm()
-    } catch (error) {
-      show('Failed to save budget. Please try again.', { type: 'error' })
+    } catch (error: any) {
+      console.error('Failed to save budget:', error)
+      const message = error.message || 'Failed to save budget. Please try again.'
+      show(message, { type: 'error' })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleDeleteBudget = (budget: any) => {
+  const handleDeleteBudget = async (budget: Budget) => {
     const confirmed = window.confirm(`Are you sure you want to delete the "${budget.category}" budget?\n\nThis action cannot be undone.`)
     if (confirmed) {
-      setBudgetData((prev: any[]) => prev.filter((b) => b.id !== budget.id))
-      show(`Budget "${budget.category}" deleted successfully!`, { type: 'success' })
+      try {
+        setLoading(true)
+        await budgetService.delete(budget.id)
+        await loadBudgets() // Reload budgets from server
+        show(`Budget "${budget.category}" deleted successfully!`, { type: 'success' })
+      } catch (error: any) {
+        console.error('Failed to delete budget:', error)
+        const message = error.message || 'Failed to delete budget. Please try again.'
+        show(message, { type: 'error' })
+      } finally {
+        setLoading(false)
+      }
     }
   }
 
@@ -98,16 +135,34 @@ export default function Budgets() {
         </div>
         <button
           onClick={handleOpenModal}
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
+          disabled={loading}
+          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add Budget
+          {loading ? (
+            <>
+              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Loading...
+            </>
+          ) : (
+            <>
+              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add Budget
+            </>
+          )}
         </button>
       </div>
 
-      {budgetData.length === 0 ? (
+      {loading && budgetData.length === 0 ? (
+        <div className="text-center py-10 sm:py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm px-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 mb-3 sm:mb-4">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
+          </div>
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">Loading budgets...</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Please wait while we fetch your budgets</p>
+        </div>
+      ) : budgetData.length === 0 ? (
         <div className="text-center py-10 sm:py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm px-4">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 mb-3 sm:mb-4">
             <svg className="h-7 w-7 sm:h-8 sm:w-8 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,7 +173,8 @@ export default function Budgets() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 sm:mb-6 max-w-sm mx-auto">Create your first budget to start tracking your spending and take control of your finances</p>
           <button
             onClick={handleOpenModal}
-            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
+            disabled={loading}
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -128,7 +184,7 @@ export default function Budgets() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {budgetData.map((budget: any) => {
+          {budgetData.map((budget) => {
             const percentage = getProgressPercentage(budget.spent, budget.budget)
             const progressColor = getProgressColor(budget.spent, budget.budget)
             const isOverBudget = budget.spent > budget.budget
@@ -172,8 +228,8 @@ export default function Budgets() {
                     )}
                   </span>
                   <div className="flex items-center gap-2">
-                    <button onClick={() => handleEditBudget(budget)} className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md font-medium transition-colors" title="Edit budget">Edit</button>
-                    <button onClick={() => handleDeleteBudget(budget)} className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors" title="Delete budget">Delete</button>
+                    <button onClick={() => handleEditBudget(budget)} disabled={loading} className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Edit budget">Edit</button>
+                    <button onClick={() => handleDeleteBudget(budget)} disabled={loading} className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Delete budget">Delete</button>
                   </div>
                 </div>
               </div>
@@ -247,8 +303,15 @@ export default function Budgets() {
             >
               Cancel
             </button>
-            <button onClick={handleSubmit} className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-emerald-600 dark:bg-emerald-600 rounded-md shadow-sm hover:bg-emerald-700 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors">
-              {editingBudget ? 'Update Budget' : 'Create Budget'}
+            <button onClick={handleSubmit} disabled={loading} className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-emerald-600 dark:bg-emerald-600 rounded-md shadow-sm hover:bg-emerald-700 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              {loading ? (
+                <span className="inline-flex items-center">
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </span>
+              ) : (
+                editingBudget ? 'Update Budget' : 'Create Budget'
+              )}
             </button>
           </div>
         </div>
