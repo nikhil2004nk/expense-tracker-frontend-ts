@@ -70,7 +70,10 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
   const filteredSorted = useMemo(() => {
     let list = [...transactions]
     if (debouncedCategoryFilter) {
-      list = list.filter((t) => t.category.toLowerCase().includes(debouncedCategoryFilter.toLowerCase()))
+      list = list.filter((t) => {
+        const categoryName = t.category?.name || 'Uncategorized'
+        return categoryName.toLowerCase().includes(debouncedCategoryFilter.toLowerCase())
+      })
     }
     list.sort((a, b) => {
       if (sortBy === 'dateDesc') return b.date.localeCompare(a.date)
@@ -129,7 +132,23 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col gap-1">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{t.category}</span>
+                      <span 
+                        className="text-sm font-medium px-2 py-1 rounded inline-flex items-center w-fit"
+                        style={t.category?.color ? {
+                          backgroundColor: `${t.category.color}15`,
+                          color: t.category.color,
+                          borderLeft: `3px solid ${t.category.color}`
+                        } : undefined}
+                      >
+                        {t.category ? (
+                          <>
+                            {t.category.icon && <span className="mr-1">{t.category.icon}</span>}
+                            {t.category.name}
+                          </>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">Uncategorized</span>
+                        )}
+                      </span>
                       <span className="text-base font-semibold text-gray-900 dark:text-white">{formatCurrencyWithSymbol(t.amount)}</span>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t.date}</p>
@@ -179,7 +198,23 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
                 <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-4 py-3 text-gray-900 dark:text-gray-300">{t.date}</td>
                   <td className="px-4 py-3">
-                    <span className="font-medium text-gray-900 dark:text-white">{t.category}</span>
+                    <span 
+                      className="font-medium px-2 py-1 rounded inline-flex items-center"
+                      style={t.category?.color ? {
+                        backgroundColor: `${t.category.color}15`,
+                        color: t.category.color,
+                        borderLeft: `3px solid ${t.category.color}`
+                      } : undefined}
+                    >
+                      {t.category ? (
+                        <>
+                          {t.category.icon && <span className="mr-1">{t.category.icon}</span>}
+                          {t.category.name}
+                        </>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">Uncategorized</span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{formatCurrencyWithSymbol(t.amount)}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">{t.notes}</td>

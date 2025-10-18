@@ -30,23 +30,15 @@ export type CategoryData = {
 
 /**
  * Determine if a transaction is income or expense based on amount
- * Positive amounts are income, negative amounts are expense
+ * In this expense tracker, all transactions are expenses (positive amounts)
+ * This function can be extended later to support income tracking
  */
-function isIncome(transaction: Transaction): boolean {
-  return transaction.amount > 0
+function isIncome(_transaction: Transaction): boolean {
+  // For now, all transactions are expenses
+  // In the future, we could add a 'type' field to distinguish income vs expense
+  return false
 }
 
-/**
- * Get month name from date string
- */
-function getMonthName(dateStr: string): string {
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-  } catch {
-    return 'Unknown'
-  }
-}
 
 /**
  * Fetch and process dashboard data
@@ -72,38 +64,47 @@ export async function fetchDashboardData(options: { signal?: AbortSignal } = {})
 
   const balance = totalIncome - totalExpense
 
-  // Group by month
-  const monthMap = new Map<string, { income: number; expense: number }>()
+  // Group by month - only show months that have transactions
+  const monthMap = new Map<string, { income: number; expense: number; date: Date }>()
+  
   transactions.forEach(t => {
-    const month = getMonthName(t.date)
-    if (!monthMap.has(month)) {
-      monthMap.set(month, { income: 0, expense: 0 })
+    const transactionDate = new Date(t.date)
+    const monthKey = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`
+    
+    if (!monthMap.has(monthKey)) {
+      monthMap.set(monthKey, { income: 0, expense: 0, date: transactionDate })
     }
-    const monthData = monthMap.get(month)!
-    if (isIncome(t)) {
-      monthData.income += t.amount
-    } else {
-      monthData.expense += Math.abs(t.amount)
-    }
+    const monthData = monthMap.get(monthKey)!
+    
+    // Since all transactions are expenses in this app, income is always 0
+    monthData.expense += Math.abs(t.amount)
   })
 
-  // Convert to array and sort by date (most recent first, but show last 6 months)
+  // Convert to array, sort by date (most recent first), take last 6 months
   const monthlyData: MonthlyData[] = Array.from(monthMap.entries())
-    .map(([month, data]) => ({
-      month,
-      income: data.income,
-      expense: data.expense,
-    }))
-    .slice(0, 6)
-    .reverse() // Show oldest to newest for chart
+    .map(([monthKey, data]) => {
+      const [year, month] = monthKey.split('-')
+      const date = new Date(parseInt(year), parseInt(month) - 1, 1)
+      return {
+        month: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        income: 0, // Always 0 since we don't track income
+        expense: data.expense,
+        sortKey: monthKey,
+      }
+    })
+    .sort((a, b) => b.sortKey.localeCompare(a.sortKey)) // Most recent first
+    .slice(0, 6) // Take last 6 months with transactions
+    .reverse() // Reverse to show oldest to newest for chart
+    .map(({ month, income, expense }) => ({ month, income, expense })) // Remove sortKey
 
   // Group expenses by category
   const categoryMap = new Map<string, number>()
   transactions.forEach(t => {
     if (!isIncome(t)) {
       const amount = Math.abs(t.amount)
-      const currentAmount = categoryMap.get(t.category) || 0
-      categoryMap.set(t.category, currentAmount + amount)
+      const categoryName = t.category?.name || 'Uncategorized'
+      const currentAmount = categoryMap.get(categoryName) || 0
+      categoryMap.set(categoryName, currentAmount + amount)
     }
   })
 
@@ -121,7 +122,7 @@ export async function fetchDashboardData(options: { signal?: AbortSignal } = {})
   const recentTransactions = transactions.slice(0, 5)
 
   // Get unique categories
-  const categoryCount = new Set(transactions.map(t => t.category)).size
+  const categoryCount = new Set(transactions.map(t => t.category?.name || 'Uncategorized')).size
 
   return {
     totalIncome,

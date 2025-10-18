@@ -4,24 +4,44 @@ import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useToast } from '../components/ToastProvider'
 import { getCurrencySymbol, formatCurrencyWithSymbol } from '../utils/currency'
 import { budgetService } from '../services/budgets'
+import { fetchCategories, type Category } from '../services/categories'
 import type { Budget } from '../services/budgets'
 
 export default function Budgets() {
   const { show } = useToast()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null)
-  const [formData, setFormData] = useState({ category: '', amount: '' })
-  const [formErrors, setFormErrors] = useState<{ category?: string; amount?: string }>({})
+  const [formData, setFormData] = useState({ categoryId: '', amount: '' })
+  const [formErrors, setFormErrors] = useState<{ categoryId?: string; amount?: string }>({})
   const [budgetData, setBudgetData] = useState<Budget[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingCategories, setLoadingCategories] = useState(true)
 
   const [userPreferences] = useLocalStorage('userPreferences', { currency: 'INR' })
   const currencySymbol = getCurrencySymbol(userPreferences.currency)
+
+  // Load categories on component mount
+  useEffect(() => {
+    loadCategories()
+  }, [])
 
   // Load budgets on component mount
   useEffect(() => {
     loadBudgets()
   }, [])
+
+  const loadCategories = async () => {
+    try {
+      const cats = await fetchCategories()
+      setCategories(cats)
+    } catch (error: any) {
+      console.error('Failed to load categories:', error)
+      show(error.message || 'Failed to load categories', { type: 'error' })
+    } finally {
+      setLoadingCategories(false)
+    }
+  }
 
   const loadBudgets = async () => {
     try {
@@ -38,19 +58,11 @@ export default function Budgets() {
   }
 
   const getProgressPercentage = (spent: number, budget: number) => Math.min((spent / budget) * 100, 100)
-  const getProgressColor = (spent: number, budget: number) => {
-    const percentage = getProgressPercentage(spent, budget)
-    if (percentage >= 100) return 'bg-red-500'
-    if (percentage >= 80) return 'bg-yellow-500'
-    return 'bg-emerald-500'
-  }
 
   const validateForm = () => {
-    const errors: { category?: string; amount?: string } = {}
-    if (!formData.category?.trim()) {
-      errors.category = 'Category is required'
-    } else if (formData.category.trim().length < 2) {
-      errors.category = 'Category must be at least 2 characters'
+    const errors: { categoryId?: string; amount?: string } = {}
+    if (!formData.categoryId?.trim()) {
+      errors.categoryId = 'Category is required'
     }
     if (!formData.amount) {
       errors.amount = 'Budget amount is required'
@@ -62,7 +74,7 @@ export default function Budgets() {
   }
 
   const resetForm = () => {
-    setFormData({ category: '', amount: '' })
+    setFormData({ categoryId: '', amount: '' })
     setFormErrors({})
     setEditingBudget(null)
   }
@@ -74,7 +86,7 @@ export default function Budgets() {
 
   const handleEditBudget = (budget: any) => {
     setEditingBudget(budget)
-    setFormData({ category: budget.category, amount: budget.budget.toString() })
+    setFormData({ categoryId: budget.categoryId, amount: budget.budget.toString() })
     setFormErrors({})
     setIsModalOpen(true)
   }
@@ -83,18 +95,19 @@ export default function Budgets() {
     if (!validateForm()) return
     try {
       setLoading(true)
+      const categoryName = categories.find(c => c.id === formData.categoryId)?.name || 'Budget'
       if (editingBudget) {
         await budgetService.update(editingBudget.id, {
-          category: formData.category.trim(),
+          categoryId: formData.categoryId.trim(),
           amount: parseFloat(formData.amount),
         })
-        show(`Budget "${formData.category}" updated successfully!`, { type: 'success' })
+        show(`Budget "${categoryName}" updated successfully!`, { type: 'success' })
       } else {
         await budgetService.create({
-          category: formData.category.trim(),
+          categoryId: formData.categoryId.trim(),
           amount: parseFloat(formData.amount),
         })
-        show(`Budget "${formData.category}" created successfully!`, { type: 'success' })
+        show(`Budget "${categoryName}" created successfully!`, { type: 'success' })
       }
       await loadBudgets() // Reload budgets from server
       setIsModalOpen(false)
@@ -109,13 +122,14 @@ export default function Budgets() {
   }
 
   const handleDeleteBudget = async (budget: Budget) => {
-    const confirmed = window.confirm(`Are you sure you want to delete the "${budget.category}" budget?\n\nThis action cannot be undone.`)
+    const categoryName = budget.category?.name || 'this budget'
+    const confirmed = window.confirm(`Are you sure you want to delete the "${categoryName}" budget?\n\nThis action cannot be undone.`)
     if (confirmed) {
       try {
         setLoading(true)
         await budgetService.delete(budget.id)
         await loadBudgets() // Reload budgets from server
-        show(`Budget "${budget.category}" deleted successfully!`, { type: 'success' })
+        show(`Budget "${categoryName}" deleted successfully!`, { type: 'success' })
       } catch (error: any) {
         console.error('Failed to delete budget:', error)
         const message = error.message || 'Failed to delete budget. Please try again.'
@@ -186,18 +200,33 @@ export default function Budgets() {
         <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {budgetData.map((budget) => {
             const percentage = getProgressPercentage(budget.spent, budget.budget)
-            const progressColor = getProgressColor(budget.spent, budget.budget)
             const isOverBudget = budget.spent > budget.budget
             const isSetupRequired = budget.budget === 0
             
             return (
-              <div key={budget.id} className={`rounded-lg border p-4 sm:p-5 md:p-6 shadow-sm transition-all duration-200 ${
-                isSetupRequired 
-                  ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md' 
-                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-lg dark:hover:shadow-emerald-900/10'
-              }`}>
+              <div 
+                key={budget.id} 
+                className={`rounded-lg border p-4 sm:p-5 md:p-6 shadow-sm transition-all duration-200 ${
+                  isSetupRequired 
+                    ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md' 
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-lg dark:hover:shadow-emerald-900/10'
+                }`}
+                style={budget.category?.color ? {
+                  borderTopWidth: '4px',
+                  borderTopColor: budget.category.color
+                } : undefined}
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate pr-2">{budget.category}</h3>
+                  <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate pr-2">
+                    {budget.category ? (
+                      <>
+                        {budget.category.icon && <span className="mr-1">{budget.category.icon}</span>}
+                        {budget.category.name}
+                      </>
+                    ) : (
+                      'Uncategorized'
+                    )}
+                  </h3>
                   {isSetupRequired ? (
                     <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/50 flex-shrink-0">Setup Required</span>
                   ) : isOverBudget ? (
@@ -248,7 +277,13 @@ export default function Budgets() {
                         <span className={`${percentage >= 100 ? 'text-red-600 dark:text-red-400' : percentage >= 80 ? 'text-yellow-600 dark:text-yellow-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{percentage.toFixed(0)}%</span>
                       </div>
                       <div className="h-2.5 rounded-full bg-gray-200 dark:bg-gray-700/50 overflow-hidden shadow-inner">
-                        <div className={`h-2.5 rounded-full ${progressColor} transition-all duration-500 ease-out shadow-sm`} style={{ width: `${Math.min(percentage, 100)}%` }} />
+                        <div 
+                          className="h-2.5 rounded-full transition-all duration-500 ease-out shadow-sm"
+                          style={{ 
+                            width: `${Math.min(percentage, 100)}%`,
+                            backgroundColor: budget.category?.color || (percentage >= 100 ? '#ef4444' : percentage >= 80 ? '#f59e0b' : '#10b981')
+                          }} 
+                        />
                       </div>
                     </div>
                     <div className="flex flex-col gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
@@ -293,21 +328,48 @@ export default function Budgets() {
       >
         <div className="space-y-5">
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Category *</label>
-            <input
-              id="category"
-              type="text"
-              value={formData.category}
-              onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-              className={`block w-full rounded-lg border px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-white ${formErrors.category ? 'border-red-300 dark:border-red-500/50 focus:ring-red-500 focus:border-red-500 bg-red-50/50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500'}`}
-              placeholder="e.g., Groceries, Food, Transport"
-            />
-            {formErrors.category && (
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Category *</label>
+              <a
+                href="/#/categories"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium inline-flex items-center gap-1"
+              >
+                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Create new
+              </a>
+            </div>
+            <select
+              id="categoryId"
+              value={formData.categoryId}
+              onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
+              disabled={loadingCategories}
+              className={`block w-full rounded-lg border px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-white ${formErrors.categoryId ? 'border-red-300 dark:border-red-500/50 focus:ring-red-500 focus:border-red-500 bg-red-50/50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500'}`}
+            >
+              <option value="">Select a category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+                </option>
+              ))}
+            </select>
+            {formErrors.categoryId && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
                 <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
-                {formErrors.category}
+                {formErrors.categoryId}
+              </p>
+            )}
+            {loadingCategories && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loading categories...</p>
+            )}
+            {!loadingCategories && categories.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                No categories available. <a href="/#/categories" target="_blank" rel="noopener noreferrer" className="underline font-medium">Create one</a> to get started.
               </p>
             )}
           </div>

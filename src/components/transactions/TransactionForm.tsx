@@ -1,14 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { uploadReceipt } from '../../services/transactions'
+import { fetchCategories, type Category } from '../../services/categories'
 import { useToast } from '../ToastProvider'
 import { Loader } from '../common'
 
 const schema = z.object({
   amount: z.coerce.number().positive('Amount must be positive'),
-  category: z.string().min(1, 'Category is required'),
+  categoryId: z.string().optional(),
   date: z.string().min(1, 'Date is required'),
   notes: z.string().optional(),
   receipt: z.any().optional(),
@@ -21,15 +22,33 @@ export default function TransactionForm({
   onSubmit,
   submitting,
 }: {
-  defaultValues?: { amount: number; category: string; date: string; notes?: string; receiptUrl?: string }
-  onSubmit: (payload: { amount: number; category: string; date: string; notes: string; receiptUrl: string }) => Promise<void>
+  defaultValues?: { amount: number; categoryId?: string; date: string; notes?: string; receiptUrl?: string }
+  onSubmit: (payload: { amount: number; categoryId?: string; date: string; notes: string; receiptUrl: string }) => Promise<void>
   submitting: boolean
 }) {
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
   const { show } = useToast()
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<TransactionFormValues>({
     resolver: zodResolver(schema) as any,
-    defaultValues: (defaultValues as any) || ({ amount: undefined, category: '', date: '', notes: '', receipt: undefined } as any),
+    defaultValues: (defaultValues as any) || ({ amount: undefined, categoryId: '', date: '', notes: '', receipt: undefined } as any),
   })
+
+  // Load categories on mount
+  const loadCategories = useCallback(async () => {
+    try {
+      const cats = await fetchCategories()
+      setCategories(cats)
+    } catch (e: any) {
+      show(e.message || 'Failed to load categories', { type: 'error' })
+    } finally {
+      setLoadingCategories(false)
+    }
+  }, [show])
+
+  useEffect(() => {
+    loadCategories()
+  }, [loadCategories])
 
   useEffect(() => {
     if (defaultValues) {
@@ -44,10 +63,16 @@ export default function TransactionForm({
       if (fileList && fileList.length > 0) {
         receiptUrl = await uploadReceipt(fileList[0])
       }
-      const payload = { amount: Number(values.amount), category: values.category, date: values.date, notes: values.notes || '', receiptUrl }
+      const payload = { 
+        amount: Number(values.amount), 
+        categoryId: values.categoryId || undefined, 
+        date: values.date, 
+        notes: values.notes || '', 
+        receiptUrl 
+      }
       await onSubmit(payload)
       show('Transaction saved', { type: 'success' })
-      if (!defaultValues) reset({ amount: undefined as any, category: '', date: '', notes: '', receipt: undefined })
+      if (!defaultValues) reset({ amount: undefined as any, categoryId: '', date: '', notes: '', receipt: undefined })
     } catch (e: any) {
       show(e.message || 'Failed to save transaction', { type: 'error' })
     }
@@ -83,20 +108,47 @@ export default function TransactionForm({
         </div>
 
         <div>
-          <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Category *
-          </label>
-          <input
-            id="category"
-            type="text"
-            className={`block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white sm:text-sm ${
-              errors.category ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Category
+            </label>
+            <a
+              href="/#/categories"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium inline-flex items-center gap-1"
+            >
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Create new
+            </a>
+          </div>
+          <select
+            id="categoryId"
+            disabled={loadingCategories}
+            className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white sm:text-sm ${
+              errors.categoryId ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'
             }`}
-            placeholder="e.g., Groceries, Fuel, Food, Shopping"
-            {...register('category')}
-          />
-          {errors.category && (
-            <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{errors.category.message as string}</p>
+            {...register('categoryId')}
+          >
+            <option value="">No category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+              </option>
+            ))}
+          </select>
+          {errors.categoryId && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{errors.categoryId.message as string}</p>
+          )}
+          {loadingCategories && (
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loading categories...</p>
+          )}
+          {!loadingCategories && categories.length === 0 && (
+            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              No categories available. <a href="/#/categories" target="_blank" rel="noopener noreferrer" className="underline font-medium">Create one</a> to get started.
+            </p>
           )}
         </div>
 

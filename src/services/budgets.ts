@@ -1,22 +1,33 @@
 import { apiRequest } from './api-client'
 
+/**
+ * Category info embedded in budget response
+ */
+export interface BudgetCategory {
+  id: string
+  name: string
+  icon?: string
+  color?: string
+}
+
 export interface Budget {
-  id: string;
-  category: string;
-  budget: number;
-  spent: number;
-  createdAt: string;
-  updatedAt: string;
+  id: string
+  categoryId: string
+  category: BudgetCategory | null
+  budget: number
+  spent: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface CreateBudgetDto {
-  category: string;
-  amount: number;
+  categoryId: string
+  amount: number
 }
 
 export interface UpdateBudgetDto {
-  category?: string;
-  amount?: number;
+  categoryId?: string
+  amount?: number
 }
 
 export const budgetService = {

@@ -5,6 +5,7 @@ import { createHashRouter, Navigate, RouterProvider } from 'react-router-dom'
 import App from './App.tsx'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
+import Categories from './pages/Categories'
 import Budgets from './pages/Budgets'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
@@ -24,6 +25,7 @@ const router = createHashRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <Dashboard /> },
       { path: 'transactions', element: <Transactions /> },
+      { path: 'categories', element: <Categories /> },
       { path: 'budgets', element: <Budgets /> },
       { path: 'profile', element: <Profile /> },
       { path: 'settings', element: <Settings /> },

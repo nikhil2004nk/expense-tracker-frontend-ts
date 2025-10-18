@@ -8,7 +8,7 @@ export default function Transactions() {
   const [saving, setSaving] = useState(false)
   const listRef = useRef<TransactionListRef>(null)
 
-  async function handleSubmit(payload: { amount: number; category: string; date: string; notes: string; receiptUrl: string }) {
+  async function handleSubmit(payload: { amount: number; categoryId?: string; date: string; notes: string; receiptUrl: string }) {
     setSaving(true)
     try {
       if (editing) {
@@ -37,7 +37,17 @@ export default function Transactions() {
             {editing ? 'Update the transaction details below.' : 'Fill in the details to add a new transaction.'}
           </p>
         </div>
-        <TransactionForm defaultValues={editing || undefined} onSubmit={handleSubmit} submitting={saving} />
+        <TransactionForm 
+          defaultValues={editing ? {
+            amount: editing.amount,
+            categoryId: editing.categoryId,
+            date: editing.date,
+            notes: editing.notes,
+            receiptUrl: editing.receiptUrl
+          } : undefined} 
+          onSubmit={handleSubmit} 
+          submitting={saving} 
+        />
       </div>
 
       <TransactionList ref={listRef} onEdit={(t) => setEditing(t)} />

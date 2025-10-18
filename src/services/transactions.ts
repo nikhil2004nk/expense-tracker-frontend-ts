@@ -4,15 +4,26 @@
 import { apiRequest, apiUpload } from './api-client'
 
 /**
+ * Category info embedded in transaction response
+ */
+export type TransactionCategory = {
+  id: string
+  name: string
+  icon?: string
+  color?: string
+}
+
+/**
  * Transaction type matching backend API response
  */
 export type Transaction = {
   id: string
   amount: number
-  category: string
+  categoryId?: string
+  category?: TransactionCategory | null
   date: string
-  notes: string
-  receiptUrl: string
+  notes?: string
+  receiptUrl?: string
 }
 
 /**
@@ -20,7 +31,7 @@ export type Transaction = {
  */
 export type CreateTransactionDto = {
   amount: number
-  category: string
+  categoryId?: string
   date: string
   notes?: string
   receiptUrl?: string
@@ -31,7 +42,7 @@ export type CreateTransactionDto = {
  */
 export type UpdateTransactionDto = {
   amount?: number
-  category?: string
+  categoryId?: string
   date?: string
   notes?: string
   receiptUrl?: string
@@ -104,5 +115,4 @@ export async function uploadReceipt(file: File): Promise<string> {
 export function seedDemoIfEmpty() {
   // This is now a no-op since data is managed by the backend
   // Keep the function for backward compatibility with existing code
-  console.log('Demo seeding is now handled by the backend')
 }
