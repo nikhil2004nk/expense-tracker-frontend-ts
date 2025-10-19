@@ -1,5 +1,4 @@
-import { createContext, useContext } from 'react'
-import { useLocalStorage } from '../hooks/useLocalStorage'
+import { createContext, useContext, useState } from 'react'
 
 export type AppSettings = {
   notifications: boolean
@@ -31,7 +30,7 @@ const defaultSettings: AppSettings = {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined)
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useLocalStorage<AppSettings>('appSettings', defaultSettings)
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings)
 
   return (
     <SettingsContext.Provider value={{ settings, setSettings }}>

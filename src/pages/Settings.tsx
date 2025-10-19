@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useToast } from '../components/ToastProvider'
 import { useTheme } from '../contexts/ThemeContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { useI18n } from '../contexts/I18nContext'
+import { updateUserSettings } from '../services/userSettings'
 
 export default function Settings() {
   const { show } = useToast()
@@ -12,14 +13,58 @@ export default function Settings() {
 
   const { settings, setSettings } = useSettings()
 
-  const handleSettingChange = (key: string, value: any) => {
-    setSettings((prev: any) => ({ ...prev, [key]: value }))
+  // Local draft state; only commit to contexts/backend on Save
+  const [draftTheme, setDraftTheme] = useState<'light' | 'dark'>(theme)
+  const [draft, setDraft] = useState({
+    language: settings.language as 'en' | 'hi' | 'mr',
+    dateFormat: settings.dateFormat as 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD',
+    budgetAlertThreshold: settings.budgetAlertThreshold as number,
+    // Local-only settings below (not persisted to backend)
+    fiscalYearStart: settings.fiscalYearStart,
+    notifications: settings.notifications,
+    emailReports: settings.emailReports,
+    defaultTransactionView: settings.defaultTransactionView,
+    autoBackup: settings.autoBackup,
+  })
+
+  const handleSettingChange = (
+    key:
+      | 'language'
+      | 'dateFormat'
+      | 'budgetAlertThreshold'
+      | 'fiscalYearStart'
+      | 'notifications'
+      | 'emailReports'
+      | 'defaultTransactionView'
+      | 'autoBackup',
+    value: any,
+  ) => {
+    setDraft((prev) => ({ ...prev, [key]: value }))
   }
 
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await new Promise((r) => setTimeout(r, 1000))
+      await updateUserSettings({
+        theme: draftTheme,
+        language: draft.language,
+        date_format: draft.dateFormat,
+        budget_alert_threshold: draft.budgetAlertThreshold,
+      })
+      // Apply to contexts only after successful save
+      setTheme(draftTheme)
+      setSettings((prev: any) => ({
+        ...prev,
+        language: draft.language,
+        dateFormat: draft.dateFormat,
+        budgetAlertThreshold: draft.budgetAlertThreshold,
+        // Apply local-only settings to context on save as well
+        fiscalYearStart: draft.fiscalYearStart,
+        notifications: draft.notifications,
+        emailReports: draft.emailReports,
+        defaultTransactionView: draft.defaultTransactionView,
+        autoBackup: draft.autoBackup,
+      }))
       show(t('settings_save_success'), { type: 'success' })
     } catch {
       show(t('settings_save_error'), { type: 'error' })
@@ -27,6 +72,31 @@ export default function Settings() {
       setIsSaving(false)
     }
   }
+  // Keep draft in sync when contexts change (e.g., from app bootstrap)
+  useEffect(() => {
+    setDraftTheme(theme)
+  }, [theme])
+  useEffect(() => {
+    setDraft({
+      language: settings.language as 'en' | 'hi' | 'mr',
+      dateFormat: settings.dateFormat as 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD',
+      budgetAlertThreshold: settings.budgetAlertThreshold,
+      fiscalYearStart: settings.fiscalYearStart,
+      notifications: settings.notifications,
+      emailReports: settings.emailReports,
+      defaultTransactionView: settings.defaultTransactionView,
+      autoBackup: settings.autoBackup,
+    })
+  }, [
+    settings.language,
+    settings.dateFormat,
+    settings.budgetAlertThreshold,
+    settings.fiscalYearStart,
+    settings.notifications,
+    settings.emailReports,
+    settings.defaultTransactionView,
+    settings.autoBackup,
+  ])
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -44,8 +114,8 @@ export default function Settings() {
               <button
                 key={tItem.value}
                 type="button"
-                onClick={() => setTheme(tItem.value as 'light' | 'dark')}
-                className={`relative flex cursor-pointer rounded-lg p-4 border-2 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${theme === tItem.value ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}
+                onClick={() => setDraftTheme(tItem.value as 'light' | 'dark')}
+                className={`relative flex cursor-pointer rounded-lg p-4 border-2 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${draftTheme === tItem.value ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}
               >
                 <div className="flex items-center justify-center w-full">
                   <div className="text-center">
@@ -53,7 +123,7 @@ export default function Settings() {
                     <div className="text-sm font-medium text-gray-900 dark:text-white">{tItem.label}</div>
                   </div>
                 </div>
-                {theme === tItem.value && (
+                {draftTheme === tItem.value && (
                   <div className="absolute top-2 right-2">
                     <svg className="h-5 w-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -71,8 +141,8 @@ export default function Settings() {
               <label htmlFor="language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('language_label')}</label>
               <select
                 id="language"
-                value={settings.language}
-                onChange={(e) => handleSettingChange('language', e.target.value)}
+                value={draft.language}
+                onChange={(e) => handleSettingChange('language', e.target.value as 'en' | 'hi' | 'mr')}
                 className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:text-white"
               >
                 <option value="en">English</option>
@@ -85,8 +155,8 @@ export default function Settings() {
               <label htmlFor="dateFormat" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('date_format_label')}</label>
               <select
                 id="dateFormat"
-                value={settings.dateFormat}
-                onChange={(e) => handleSettingChange('dateFormat', e.target.value)}
+                value={draft.dateFormat}
+                onChange={(e) => handleSettingChange('dateFormat', e.target.value as 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD')}
                 className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:text-white"
               >
                 <option value="DD/MM/YYYY">DD/MM/YYYY (31/12/2024)</option>
@@ -99,7 +169,7 @@ export default function Settings() {
               <label htmlFor="fiscalYearStart" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('fiscal_year_start_label')}</label>
               <select
                 id="fiscalYearStart"
-                value={settings.fiscalYearStart}
+                value={draft.fiscalYearStart}
                 onChange={(e) => handleSettingChange('fiscalYearStart', e.target.value)}
                 className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:text-white"
               >
@@ -122,10 +192,10 @@ export default function Settings() {
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('push_hint')}</p>
               </div>
               <button
-                onClick={() => handleSettingChange('notifications', !settings.notifications)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${settings.notifications ? 'bg-emerald-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+                onClick={() => handleSettingChange('notifications', !draft.notifications)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${draft.notifications ? 'bg-emerald-600' : 'bg-gray-200 dark:bg-gray-700'}`}
               >
-                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.notifications ? 'translate-x-5' : 'translate-x-0'}`} />
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${draft.notifications ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
 
@@ -135,10 +205,10 @@ export default function Settings() {
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('email_hint')}</p>
               </div>
               <button
-                onClick={() => handleSettingChange('emailReports', !settings.emailReports)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${settings.emailReports ? 'bg-emerald-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+                onClick={() => handleSettingChange('emailReports', !draft.emailReports)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${draft.emailReports ? 'bg-emerald-600' : 'bg-gray-200 dark:bg-gray-700'}`}
               >
-                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.emailReports ? 'translate-x-5' : 'translate-x-0'}`} />
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${draft.emailReports ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
           </div>
@@ -156,11 +226,11 @@ export default function Settings() {
                   min={50}
                   max={100}
                   step={5}
-                  value={settings.budgetAlertThreshold}
+                  value={draft.budgetAlertThreshold}
                   onChange={(e) => handleSettingChange('budgetAlertThreshold', parseInt(e.target.value))}
                   className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                 />
-                <span className="text-sm font-medium text-gray-900 dark:text-white min-w-[3rem] text-right">{settings.budgetAlertThreshold}%</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white min-w-[3rem] text-right">{draft.budgetAlertThreshold}%</span>
               </div>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('budget_alert_hint')}</p>
             </div>
@@ -169,7 +239,7 @@ export default function Settings() {
               <label htmlFor="defaultTransactionView" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('default_tx_view_label')}</label>
               <select
                 id="defaultTransactionView"
-                value={settings.defaultTransactionView}
+                value={draft.defaultTransactionView}
                 onChange={(e) => handleSettingChange('defaultTransactionView', e.target.value)}
                 className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm shadow-sm focus:outline.none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:text-white"
               >
@@ -192,10 +262,10 @@ export default function Settings() {
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('auto_backup_hint')}</p>
               </div>
               <button
-                onClick={() => handleSettingChange('autoBackup', !settings.autoBackup)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${settings.autoBackup ? 'bg-emerald-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+                onClick={() => handleSettingChange('autoBackup', !draft.autoBackup)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${draft.autoBackup ? 'bg-emerald-600' : 'bg-gray-200 dark:bg-gray-700'}`}
               >
-                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${settings.autoBackup ? 'translate-x-5' : 'translate-x-0'}`} />
+                <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${draft.autoBackup ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
 
