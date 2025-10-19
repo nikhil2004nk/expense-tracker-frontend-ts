@@ -9,6 +9,9 @@ import { apiRequest } from './api-client'
 export type Category = {
   id: string
   name: string
+  name_en?: string
+  name_hi?: string
+  name_mr?: string
   icon?: string
   color?: string
   createdAt?: string
@@ -20,6 +23,9 @@ export type Category = {
  */
 export type CreateCategoryDto = {
   name: string
+  name_en?: string
+  name_hi?: string
+  name_mr?: string
   icon?: string
   color?: string
 }
@@ -29,6 +35,9 @@ export type CreateCategoryDto = {
  */
 export type UpdateCategoryDto = {
   name?: string
+  name_en?: string
+  name_hi?: string
+  name_mr?: string
   icon?: string
   color?: string
 }

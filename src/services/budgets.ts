@@ -6,6 +6,9 @@ import { apiRequest } from './api-client'
 export interface BudgetCategory {
   id: string
   name: string
+  name_en?: string
+  name_hi?: string
+  name_mr?: string
   icon?: string
   color?: string
 }

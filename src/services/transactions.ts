@@ -9,6 +9,9 @@ import { apiRequest, apiUpload } from './api-client'
 export type TransactionCategory = {
   id: string
   name: string
+  name_en?: string
+  name_hi?: string
+  name_mr?: string
   icon?: string
   color?: string
 }

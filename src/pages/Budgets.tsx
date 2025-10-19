@@ -5,9 +5,14 @@ import { useCurrency } from '../contexts/CurrencyContext'
 import { budgetService } from '../services/budgets'
 import { fetchCategories, type Category } from '../services/categories'
 import type { Budget } from '../services/budgets'
+import { useI18n } from '../contexts/I18nContext'
+import { useSettings } from '../contexts/SettingsContext'
 
 export default function Budgets() {
   const { show } = useToast()
+  const { t } = useI18n()
+  const { settings } = useSettings()
+  const locale = settings.language as 'en' | 'hi' | 'mr'
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null)
   const [formData, setFormData] = useState({ categoryId: '', amount: '' })
@@ -39,6 +44,12 @@ export default function Budgets() {
     } finally {
       setLoadingCategories(false)
     }
+  }
+
+  const getCategoryName = (cat?: any) => {
+    if (!cat) return t('uncategorized')
+    const localized = cat?.[`name_${locale}`]
+    return localized || cat?.name || t('uncategorized')
   }
 
   const loadBudgets = async () => {
@@ -93,7 +104,8 @@ export default function Budgets() {
     if (!validateForm()) return
     try {
       setLoading(true)
-      const categoryName = categories.find(c => c.id === formData.categoryId)?.name || 'Budget'
+      const categoryObj = categories.find(c => c.id === formData.categoryId)
+      const categoryName = getCategoryName(categoryObj) || 'Budget'
       if (editingBudget) {
         await budgetService.update(editingBudget.id, {
           categoryId: formData.categoryId.trim(),
@@ -120,7 +132,7 @@ export default function Budgets() {
   }
 
   const handleDeleteBudget = async (budget: Budget) => {
-    const categoryName = budget.category?.name || 'this budget'
+    const categoryName = getCategoryName(budget.category) || 'this budget'
     const confirmed = window.confirm(`Are you sure you want to delete the "${categoryName}" budget?\n\nThis action cannot be undone.`)
     if (confirmed) {
       try {
@@ -142,8 +154,8 @@ export default function Budgets() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Budgets</h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Track your spending against budget limits</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('budgets_title_page')}</h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('budgets_subtitle')}</p>
         </div>
         <button
           onClick={handleOpenModal}
@@ -153,14 +165,14 @@ export default function Budgets() {
           {loading ? (
             <>
               <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Loading...
+              {t('loading_budgets')}
             </>
           ) : (
             <>
               <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Add Budget
+              {t('add_budget')}
             </>
           )}
         </button>
@@ -171,8 +183,8 @@ export default function Budgets() {
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 mb-3 sm:mb-4">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
           </div>
-          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">Loading budgets...</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Please wait while we fetch your budgets</p>
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">{t('loading_budgets')}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('loading_budgets_wait')}</p>
         </div>
       ) : budgetData.length === 0 ? (
         <div className="text-center py-10 sm:py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm px-4">
@@ -181,8 +193,8 @@ export default function Budgets() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </div>
-          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">No budgets yet</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 sm:mb-6 max-w-sm mx-auto">Create your first budget to start tracking your spending and take control of your finances</p>
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">{t('no_budgets_yet')}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 sm:mb-6 max-w-sm mx-auto">{t('create_first_budget_hint')}</p>
           <button
             onClick={handleOpenModal}
             disabled={loading}
@@ -191,7 +203,7 @@ export default function Budgets() {
             <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Create Your First Budget
+            {t('add_budget')}
           </button>
         </div>
       ) : (
@@ -200,40 +212,40 @@ export default function Budgets() {
             const percentage = getProgressPercentage(budget.spent, budget.budget)
             const isOverBudget = budget.spent > budget.budget
             const isSetupRequired = budget.budget === 0
-            
+
             return (
-              <div 
-                key={budget.id} 
-                className={`rounded-lg border p-4 sm:p-5 md:p-6 shadow-sm transition-all duration-200 ${
-                  isSetupRequired 
-                    ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md' 
+              <div
+                key={budget.id}
+                className={`rounded-lg border p-4 sm:p-5 md:p-6 shadow-sm transition-all duration-200 ${isSetupRequired
+                    ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-md'
                     : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:shadow-lg dark:hover:shadow-emerald-900/10'
-                }`}
-                style={budget.category?.color ? {
+                  }`}
+                style={(categories.find(c => c.id === budget.categoryId)?.color || budget.category?.color) ? {
                   borderTopWidth: '4px',
-                  borderTopColor: budget.category.color
+                  borderTopColor: (categories.find(c => c.id === budget.categoryId)?.color || budget.category?.color) as string
                 } : undefined}
               >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate pr-2">
-                    {budget.category ? (
-                      <>
-                        {budget.category.icon && <span className="mr-1">{budget.category.icon}</span>}
-                        {budget.category.name}
-                      </>
-                    ) : (
-                      'Uncategorized'
-                    )}
+                    {(() => {
+                      const cat = categories.find(c => c.id === budget.categoryId) || budget.category
+                      if (!cat) return t('uncategorized')
+                      return (
+                        <span className="inline-flex items-center">
+                          {cat.icon && <span className="mr-1">{cat.icon}</span>}
+                          {getCategoryName(cat)}
+                        </span>
+                      )
+                    })()}
                   </h3>
                   {isSetupRequired ? (
-                    <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/50 flex-shrink-0">Setup Required</span>
+                    <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/50 flex-shrink-0">{t('setup_required')}</span>
                   ) : isOverBudget ? (
-                    <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800/50 flex-shrink-0">Over Budget</span>
+                    <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800/50 flex-shrink-0">{t('over_budget')}</span>
                   ) : null}
                 </div>
 
                 {isSetupRequired ? (
-                  // Setup Required Layout 
                   <>
                     <div className="flex items-center justify-center mb-4">
                       <div className="text-center">
@@ -242,20 +254,20 @@ export default function Budgets() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
-                        <p className="text-sm text-gray-900 dark:text-white font-medium mb-1">No budget amount set</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Set your budget limit to start tracking</p>
+                        <p className="text-sm text-gray-900 dark:text-white font-medium mb-1">{t('no_budget_amount_set')}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('set_budget_limit_hint')}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => handleEditBudget(budget)} disabled={loading} className="flex-1 px-4 py-2 text-sm text-white bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title="Set budget amount">
+                      <button onClick={() => handleEditBudget(budget)} disabled={loading} className="flex-1 px-4 py-2 text-sm text-white bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title={t('create_budget')}>
                         <span className="flex items-center justify-center gap-2">
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
-                          Set Budget Amount
+                          {t('create_budget')}
                         </span>
                       </button>
-                      <button onClick={() => handleDeleteBudget(budget)} disabled={loading} className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title="Delete budget">
+                      <button onClick={() => handleDeleteBudget(budget)} disabled={loading} className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title={t('delete')}>
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
@@ -263,7 +275,6 @@ export default function Budgets() {
                     </div>
                   </>
                 ) : (
-                  // Normal Budget Layout
                   <>
                     <div className="flex items-baseline gap-2 mb-3">
                       <span className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white truncate">{fcs(budget.spent)}</span>
@@ -271,16 +282,16 @@ export default function Budgets() {
                     </div>
                     <div className="mb-3">
                       <div className="flex justify-between text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">
-                        <span>Progress</span>
+                        <span>{t('progress')}</span>
                         <span className={`${percentage >= 100 ? 'text-red-600 dark:text-red-400' : percentage >= 80 ? 'text-yellow-600 dark:text-yellow-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{percentage.toFixed(0)}%</span>
                       </div>
                       <div className="h-2.5 rounded-full bg-gray-200 dark:bg-gray-700/50 overflow-hidden shadow-inner">
-                        <div 
+                        <div
                           className="h-2.5 rounded-full transition-all duration-500 ease-out shadow-sm"
-                          style={{ 
+                          style={{
                             width: `${Math.min(percentage, 100)}%`,
-                            backgroundColor: budget.category?.color || (percentage >= 100 ? '#ef4444' : percentage >= 80 ? '#f59e0b' : '#10b981')
-                          }} 
+                            backgroundColor: (categories.find(c => c.id === budget.categoryId)?.color || budget.category?.color) || (percentage >= 100 ? '#ef4444' : percentage >= 80 ? '#f59e0b' : '#10b981')
+                          }}
                         />
                       </div>
                     </div>
@@ -291,20 +302,20 @@ export default function Budgets() {
                             <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
-                            <span className="truncate">{fcs(budget.spent - budget.budget)} over</span>
+                            <span className="truncate">{fcs(budget.spent - budget.budget)} {t('over_budget')}</span>
                           </span>
                         ) : (
                           <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                             <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="truncate">{fcs(budget.budget - budget.spent)} left</span>
+                            <span className="truncate">{fcs(budget.budget - budget.spent)}</span>
                           </span>
                         )}
                       </span>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => handleEditBudget(budget)} disabled={loading} className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Edit budget">Edit</button>
-                        <button onClick={() => handleDeleteBudget(budget)} disabled={loading} className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Delete budget">Delete</button>
+                        <button onClick={() => handleEditBudget(budget)} disabled={loading} className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title={t('update_budget')}>{t('edit')}</button>
+                        <button onClick={() => handleDeleteBudget(budget)} disabled={loading} className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title={t('delete')}>{t('delete')}</button>
                       </div>
                     </div>
                   </>
@@ -321,13 +332,13 @@ export default function Budgets() {
           setIsModalOpen(false)
           resetForm()
         }}
-        title={editingBudget ? 'Edit Budget' : 'Add New Budget'}
+        title={editingBudget ? t('update_budget') : t('create_budget')}
         size="sm"
       >
         <div className="space-y-5">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Category *</label>
+              <label htmlFor="categoryId" className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('category')} *</label>
               <a
                 href="/#/categories"
                 target="_blank"
@@ -337,7 +348,7 @@ export default function Budgets() {
                 <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                Create new
+                {t('create_category')}
               </a>
             </div>
             <select
@@ -347,10 +358,10 @@ export default function Budgets() {
               disabled={loadingCategories}
               className={`block w-full rounded-lg border px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-white ${formErrors.categoryId ? 'border-red-300 dark:border-red-500/50 focus:ring-red-500 focus:border-red-500 bg-red-50/50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500'}`}
             >
-              <option value="">Select a category</option>
+              <option value="">{t('category')}</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.icon ? `${cat.icon} ` : ''}{cat.name}
+                  {cat.icon ? `${cat.icon} ` : ''}{getCategoryName(cat)}
                 </option>
               ))}
             </select>
@@ -363,16 +374,16 @@ export default function Budgets() {
               </p>
             )}
             {loadingCategories && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loading categories...</p>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('loading_categories')}</p>
             )}
             {!loadingCategories && categories.length === 0 && (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                No categories available. <a href="/#/categories" target="_blank" rel="noopener noreferrer" className="underline font-medium">Create one</a> to get started.
+                {t('no_categories_yet')} <a href="/#/categories" target="_blank" rel="noopener noreferrer" className="underline font-medium">{t('create_category')}</a>
               </p>
             )}
           </div>
           <div>
-            <label htmlFor="budgetAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Budget Amount *</label>
+            <label htmlFor="budgetAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('create_budget')} *</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <span className="text-gray-500 dark:text-gray-400 text-sm font-medium">{symbol}</span>
@@ -405,16 +416,16 @@ export default function Budgets() {
               }}
               className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button onClick={handleSubmit} disabled={loading} className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-emerald-600 dark:bg-emerald-600 rounded-md shadow-sm hover:bg-emerald-700 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               {loading ? (
                 <span className="inline-flex items-center">
                   <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Saving...
+                  {t('saving')}
                 </span>
               ) : (
-                editingBudget ? 'Update Budget' : 'Create Budget'
+                editingBudget ? t('update_budget') : t('create_budget')
               )}
             </button>
           </div>

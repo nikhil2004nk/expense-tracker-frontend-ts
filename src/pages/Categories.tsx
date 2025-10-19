@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { Modal } from '../components/common'
 import { useToast } from '../components/ToastProvider'
 import { fetchCategories, createCategory, updateCategory, deleteCategory, type Category } from '../services/categories'
+import { useI18n } from '../contexts/I18nContext'
+import { useSettings } from '../contexts/SettingsContext'
 
 // Predefined emoji icons for quick selection
 const EMOJI_OPTIONS = ['🛒', '🍕', '🚗', '🎬', '💡', '🏥', '🛍️', '✈️', '🏠', '📱', '⚽', '🎓', '💰', '🎨', '🍔', '☕', '🎮', '📚', '💼', '🏋️']
@@ -22,12 +24,21 @@ const COLOR_OPTIONS = [
 
 export default function Categories() {
   const { show } = useToast()
+  const { t } = useI18n()
+  const { settings } = useSettings()
+  const locale = settings.language as 'en' | 'hi' | 'mr'
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState({ name: '', icon: '', color: '' })
   const [formErrors, setFormErrors] = useState<{ name?: string; icon?: string; color?: string }>({})
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
+
+  const getCategoryName = (cat?: Partial<Category>) => {
+    if (!cat) return t('uncategorized')
+    const localized = (cat as any)?.[`name_${locale}`]
+    return (localized as string) || cat.name || t('uncategorized')
+  }
 
   // Load categories on component mount
   useEffect(() => {
@@ -135,8 +146,8 @@ export default function Categories() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">Categories</h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Organize your transactions and budgets with custom categories</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('categories_title')}</h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('categories_subtitle')}</p>
         </div>
         <button
           onClick={handleOpenModal}
@@ -146,14 +157,14 @@ export default function Categories() {
           {loading ? (
             <>
               <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Loading...
+              {t('loading_categories')}
             </>
           ) : (
             <>
               <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Add Category
+              {t('add_category')}
             </>
           )}
         </button>
@@ -164,8 +175,8 @@ export default function Categories() {
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 mb-3 sm:mb-4">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 dark:border-emerald-400"></div>
           </div>
-          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">Loading categories...</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Please wait while we fetch your categories</p>
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">{t('loading_categories')}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t('loading_wait')}</p>
         </div>
       ) : categories.length === 0 ? (
         <div className="text-center py-10 sm:py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm px-4">
@@ -174,8 +185,8 @@ export default function Categories() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
           </div>
-          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">No categories yet</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 sm:mb-6 max-w-sm mx-auto">Create your first category to start organizing your transactions and budgets</p>
+          <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">{t('no_categories_yet')}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 sm:mb-6 max-w-sm mx-auto">{t('create_first_category_hint')}</p>
           <button
             onClick={handleOpenModal}
             disabled={loading}
@@ -184,7 +195,7 @@ export default function Categories() {
             <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
-            Create Your First Category
+            {t('add_category')}
           </button>
         </div>
       ) : (
@@ -205,7 +216,7 @@ export default function Categories() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate">{category.name}</h3>
+                    <h3 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white truncate">{getCategoryName(category)}</h3>
                     {category.color && (
                       <div className="flex items-center gap-2 mt-1">
                         <div 
@@ -224,17 +235,17 @@ export default function Categories() {
                   onClick={() => handleEditCategory(category)}
                   disabled={loading}
                   className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Edit category"
+                  title={t('edit_category')}
                 >
-                  Edit
+                  {t('edit')}
                 </button>
                 <button 
                   onClick={() => handleDeleteCategory(category)}
                   disabled={loading}
                   className="flex-1 px-3 py-1.5 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Delete category"
+                  title={t('delete')}
                 >
-                  Delete
+                  {t('delete')}
                 </button>
               </div>
             </div>
@@ -248,19 +259,19 @@ export default function Categories() {
           setIsModalOpen(false)
           resetForm()
         }}
-        title={editingCategory ? 'Edit Category' : 'Add New Category'}
+        title={editingCategory ? t('edit_category') : t('add_new_category')}
         size="sm"
       >
         <div className="space-y-5">
           <div>
-            <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Category Name *</label>
+            <label htmlFor="categoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('category_name_label')}</label>
             <input
               id="categoryName"
               type="text"
               value={formData.name}
               onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               className={`block w-full rounded-lg border px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-white ${formErrors.name ? 'border-red-300 dark:border-red-500/50 focus:ring-red-500 focus:border-red-500 bg-red-50/50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500'}`}
-              placeholder="e.g., Groceries, Food, Transport"
+              placeholder={t('category_name_placeholder')}
               maxLength={100}
             />
             {formErrors.name && (
@@ -274,7 +285,7 @@ export default function Categories() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Icon (Optional)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('icon_optional')}</label>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 {EMOJI_OPTIONS.map((emoji) => (
@@ -297,14 +308,14 @@ export default function Categories() {
                 value={formData.icon}
                 onChange={(e) => setFormData((prev) => ({ ...prev, icon: e.target.value }))}
                 className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors dark:bg-gray-700 dark:text-white"
-                placeholder="Or type your own emoji"
+                placeholder={t('or_type_emoji')}
                 maxLength={10}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Color (Optional)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('color_optional')}</label>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
                 {COLOR_OPTIONS.map((color) => (
@@ -327,7 +338,7 @@ export default function Categories() {
                 value={formData.color}
                 onChange={(e) => setFormData((prev) => ({ ...prev, color: e.target.value }))}
                 className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors dark:bg-gray-700 dark:text-white"
-                placeholder="Or type hex color (e.g., #10b981)"
+                placeholder={t('or_type_hex')}
                 maxLength={20}
               />
             </div>
@@ -341,7 +352,7 @@ export default function Categories() {
               }}
               className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
             >
-              Cancel
+              {t('cancel')}
             </button>
             <button 
               onClick={handleSubmit} 
@@ -351,10 +362,10 @@ export default function Categories() {
               {loading ? (
                 <span className="inline-flex items-center">
                   <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Saving...
+                  {t('saving')}
                 </span>
               ) : (
-                editingCategory ? 'Update Category' : 'Create Category'
+                editingCategory ? t('update_category') : t('create_category')
               )}
             </button>
           </div>

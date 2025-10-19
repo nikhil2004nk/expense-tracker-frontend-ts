@@ -5,14 +5,16 @@ import Sidebar from './components/Sidebar'
 import { ThemeProvider } from './contexts/ThemeContext'
 import ToastProvider from './components/ToastProvider'
 import { SettingsProvider } from './contexts/SettingsContext'
+import { I18nProvider } from './contexts/I18nContext'
 
 function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
     <SettingsProvider>
-      <ThemeProvider>
-        <ToastProvider>
+      <I18nProvider>
+        <ThemeProvider>
+          <ToastProvider>
           <div className="min-h-full bg-white dark:bg-gray-900 transition-colors">
             <div className="flex h-screen overflow-hidden">
               {isSidebarOpen && (
@@ -35,8 +37,9 @@ function App() {
               </div>
             </div>
           </div>
-        </ToastProvider>
-      </ThemeProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </I18nProvider>
     </SettingsProvider>
   )
 }

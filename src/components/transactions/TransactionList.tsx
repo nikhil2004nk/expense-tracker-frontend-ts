@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { fetchTransactions, deleteTransaction, seedDemoIfEmpty, type Transaction } from '../../services/transactions'
+import { fetchCategories, type Category } from '../../services/categories'
 import { useToast } from '../ToastProvider'
 import { LoaderCard, ConfirmModal } from '../common'
 import { useDebounce } from '../../hooks/useDebounce'
@@ -7,6 +8,7 @@ import { getApiBaseUrl } from '../../services/api-client'
 import { useCurrency } from '../../contexts/CurrencyContext'
 import { useSettings } from '../../contexts/SettingsContext'
 import { formatDate } from '../../utils/date'
+import { useI18n } from '../../contexts/I18nContext'
 
 export type TransactionListRef = {
   refresh: () => Promise<void>
@@ -20,13 +22,27 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
   const { show } = useToast()
   const { fcs } = useCurrency()
   const { settings } = useSettings()
+  const { t } = useI18n()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState('')
   const [sortBy, setSortBy] = useState<'dateDesc' | 'dateAsc' | 'amountDesc' | 'amountAsc'>('dateDesc')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
 
   const debouncedCategoryFilter = useDebounce(categoryFilter, 300)
+  const locale = settings.language as 'en' | 'hi' | 'mr'
+  const getCategoryName = useCallback((cat?: any) => {
+    if (!cat) return t('uncategorized')
+    const localized = cat[`name_${locale}`]
+    if (localized) return localized
+    const match = categories.find(c => {
+      const names = [c.name, c.name_en, c.name_hi, c.name_mr].filter(Boolean) as string[]
+      return names.includes(cat.name)
+    })
+    if (match) return (match as any)[`name_${locale}`] || match.name
+    return cat.name || t('uncategorized')
+  }, [locale, t, categories])
 
   const loadTransactions = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -48,6 +64,13 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false; controller.abort() }
   }, [loadTransactions])
+
+  // load categories to help localize names when embedded cat lacks fields
+  useEffect(() => {
+    let mounted = true
+    fetchCategories().then(c => { if (mounted) setCategories(c) }).catch(() => {})
+    return () => { mounted = false }
+  }, [])
 
   // Expose refresh method via ref
   useImperativeHandle(ref, () => ({
@@ -76,7 +99,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
     let list = [...transactions]
     if (debouncedCategoryFilter) {
       list = list.filter((t) => {
-        const categoryName = t.category?.name || 'Uncategorized'
+        const categoryName = getCategoryName(t.category)
         return categoryName.toLowerCase().includes(debouncedCategoryFilter.toLowerCase())
       })
     }
@@ -93,7 +116,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
   const API_BASE = getApiBaseUrl()
 
   if (loading) {
-    return <LoaderCard message="Loading transactions..." />
+    return <LoaderCard message={t('loading_transactions')} />
   }
 
   if (filteredSorted.length === 0) {
@@ -102,9 +125,9 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
         <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No transactions</h3>
+        <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">{t('no_transactions')}</h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {categoryFilter ? 'No transactions match your filters.' : 'Get started by adding your first transaction.'}
+          {categoryFilter ? t('no_txn_match_filters') : t('get_started_add_first')}
         </p>
       </div>
     )
@@ -117,7 +140,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
           <input
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            placeholder="Filter by category"
+            placeholder={t('filter_by_category')}
             className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
           />
           <select
@@ -125,66 +148,66 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
             onChange={(e) => setSortBy(e.target.value as any)}
             className="w-full sm:w-auto rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
           >
-            <option value="dateDesc">Date ↓</option>
-            <option value="dateAsc">Date ↑</option>
-            <option value="amountDesc">Amount ↓</option>
-            <option value="amountAsc">Amount ↑</option>
+            <option value="dateDesc">{t('date_desc')}</option>
+            <option value="dateAsc">{t('date_asc')}</option>
+            <option value="amountDesc">{t('amount_desc')}</option>
+            <option value="amountAsc">{t('amount_asc')}</option>
           </select>
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto">
           <div className="block sm:hidden">
-          {filteredSorted.map((t) => (
-            <div key={t.id} className="border-t border-gray-200 dark:border-gray-700 p-3">
+          {filteredSorted.map((tx) => (
+            <div key={tx.id} className="border-t border-gray-200 dark:border-gray-700 p-3">
               <div className="space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col gap-1">
                       <span 
                         className="text-sm font-medium px-2 py-1 rounded inline-flex items-center w-fit"
-                        style={t.category?.color ? {
-                          backgroundColor: `${t.category.color}15`,
-                          color: t.category.color,
-                          borderLeft: `3px solid ${t.category.color}`
+                        style={tx.category?.color ? {
+                          backgroundColor: `${tx.category.color}15`,
+                          color: tx.category.color,
+                          borderLeft: `3px solid ${tx.category.color}`
                         } : undefined}
                       >
-                        {t.category ? (
+                        {tx.category ? (
                           <>
-                            {t.category.icon && <span className="mr-1">{t.category.icon}</span>}
-                            {t.category.name}
+                            {tx.category.icon && <span className="mr-1">{tx.category.icon}</span>}
+                            {getCategoryName(tx.category)}
                           </>
                         ) : (
-                          <span className="text-gray-400 dark:text-gray-500">Uncategorized</span>
+                          <span className="text-gray-400 dark:text-gray-500">{t('uncategorized')}</span>
                         )}
                       </span>
-                      <span className="text-base font-semibold text-gray-900 dark:text-white">{fcs(t.amount)}</span>
+                      <span className="text-base font-semibold text-gray-900 dark:text-white">{fcs(tx.amount)}</span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(t.date, settings.dateFormat)}</p>
-                    {t.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{t.notes}</p>}
-                    {t.receiptUrl && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(tx.date, settings.dateFormat)}</p>
+                    {tx.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{tx.notes}</p>}
+                    {tx.receiptUrl && (
                       <a
-                        href={t.receiptUrl.startsWith('http') ? t.receiptUrl : `${API_BASE}${t.receiptUrl}`}
+                        href={tx.receiptUrl.startsWith('http') ? tx.receiptUrl : `${API_BASE}${tx.receiptUrl}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 mt-1 inline-block underline"
                       >
-                        View Receipt
+                        {t('view_receipt')}
                       </a>
                     )}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => onEdit(t)}
+                    onClick={() => onEdit(tx)}
                     className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800"
                   >
-                    Edit
+                    {t('edit')}
                   </button>
                   <button
-                    onClick={() => handleDelete(t.id)}
+                    onClick={() => handleDelete(tx.id)}
                     className="flex-1 rounded-md bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800"
                   >
-                    Delete
+                    {t('delete')}
                   </button>
                 </div>
               </div>
@@ -196,45 +219,45 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
             <table className="min-w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
               <tr>
-                {['Date', 'Category', 'Amount', 'Notes', 'Receipt', 'Actions'].map((h) => (
+                {[t('date'), t('category'), t('amount'), t('notes'), t('receipt'), t('actions')].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredSorted.map((t) => (
-                <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-4 py-3 text-gray-900 dark:text-gray-300">{formatDate(t.date, settings.dateFormat)}</td>
+              {filteredSorted.map((tItem) => (
+                <tr key={tItem.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-300">{formatDate(tItem.date, settings.dateFormat)}</td>
                   <td className="px-4 py-3">
                     <span 
                       className="font-medium px-2 py-1 rounded inline-flex items-center"
-                      style={t.category?.color ? {
-                        backgroundColor: `${t.category.color}15`,
-                        color: t.category.color,
-                        borderLeft: `3px solid ${t.category.color}`
+                      style={tItem.category?.color ? {
+                        backgroundColor: `${tItem.category.color}15`,
+                        color: tItem.category.color,
+                        borderLeft: `3px solid ${tItem.category.color}`
                       } : undefined}
                     >
-                      {t.category ? (
+                      {tItem.category ? (
                         <>
-                          {t.category.icon && <span className="mr-1">{t.category.icon}</span>}
-                          {t.category.name}
+                          {tItem.category.icon && <span className="mr-1">{tItem.category.icon}</span>}
+                          {getCategoryName(tItem.category)}
                         </>
                       ) : (
-                        <span className="text-gray-400 dark:text-gray-500">Uncategorized</span>
+                        <span className="text-gray-400 dark:text-gray-500">{t('uncategorized')}</span>
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{fcs(t.amount)}</td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">{t.notes}</td>
+                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{fcs(tItem.amount)}</td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">{tItem.notes}</td>
                   <td className="px-4 py-3">
-                    {t.receiptUrl ? (
+                    {tItem.receiptUrl ? (
                       <a
-                        href={t.receiptUrl.startsWith('http') ? t.receiptUrl : `${API_BASE}${t.receiptUrl}`}
+                        href={tItem.receiptUrl.startsWith('http') ? tItem.receiptUrl : `${API_BASE}${tItem.receiptUrl}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 rounded"
                       >
-                        View
+                        {t('view')}
                       </a>
                     ) : (
                       <span className="text-gray-400 dark:text-gray-500">—</span>
@@ -243,16 +266,16 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button
-                        onClick={() => onEdit(t)}
+                        onClick={() => onEdit(tItem)}
                         className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800"
                       >
-                        Edit
+                        {t('edit')}
                       </button>
                       <button
-                        onClick={() => handleDelete(t.id)}
+                        onClick={() => handleDelete(tItem.id)}
                         className="rounded-md bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800"
                       >
-                        Delete
+                        {t('delete')}
                       </button>
                     </div>
                   </td>
@@ -268,10 +291,10 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
         isOpen={!!deleteConfirmId}
         onClose={() => setDeleteConfirmId(null)}
         onConfirm={confirmDelete}
-        title="Delete Transaction"
-        message="Are you sure you want to delete this transaction? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
+        title={t('delete_txn_title')}
+        message={t('delete_txn_msg')}
+        confirmText={t('delete')}
+        cancelText={t('cancel')}
         type="danger"
       />
     </>
