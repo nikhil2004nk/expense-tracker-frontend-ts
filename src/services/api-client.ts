@@ -47,17 +47,50 @@ export async function apiRequest<T = any>(
   }
 
   const url = `${API_BASE}${path}`
-  
-  try {
-    const response = await fetch(url, config)
-    
-    // Try to parse response body
+
+  // Helper to perform fetch and parse JSON/text safely
+  const doRequest = async (targetUrl: string, init: RequestInit) => {
+    const response = await fetch(targetUrl, init)
     const text = await response.text()
     let data: any
     try {
       data = text ? JSON.parse(text) : null
     } catch {
       data = { message: text }
+    }
+    return { response, data }
+  }
+
+  try {
+    // First attempt
+    let { response, data } = await doRequest(url, config)
+
+    // If unauthorized, try refreshing tokens once and retry the original request
+    if (response.status === 401) {
+      const refreshUrl = `${API_BASE}/auth/refresh`
+      const refreshResp = await fetch(refreshUrl, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (refreshResp.ok) {
+        // Retry original request once after successful refresh
+        const retry = await doRequest(url, config)
+        response = retry.response
+        data = retry.data
+      } else {
+        // Parse refresh error for better message
+        const refreshText = await refreshResp.text()
+        let refreshData: any
+        try {
+          refreshData = refreshText ? JSON.parse(refreshText) : null
+        } catch {
+          refreshData = { message: refreshText }
+        }
+        const errorMessage = refreshData?.message || refreshData?.error || 'Session expired'
+        throw new ApiError(errorMessage, refreshResp.status, refreshData)
+      }
     }
 
     if (!response.ok) {

@@ -9,6 +9,7 @@ export type User = {
   id: string
   email: string
   fullName?: string
+  preferredCurrency?: string
 }
 
 export async function login({ email, password }: { email: string; password: string }): Promise<User> {
@@ -40,4 +41,35 @@ export function logout() {
 
 export function isAuthenticated(): boolean {
   return localStorage.getItem(SESSION_KEY) === '1'
+}
+
+/**
+ * Change the current user's password
+ */
+export async function changePassword({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }): Promise<{ message?: string }> {
+  return apiRequest<{ message?: string }>(
+    '/auth/change-password',
+    {
+      method: 'POST',
+      body: { currentPassword, newPassword },
+    }
+  )
+}
+
+
+export async function deleteMe(): Promise<{ message?: string }> {
+  return apiRequest<{ message?: string }>(
+    '/auth/me',
+    { method: 'DELETE' }
+  )
+}
+
+export async function updateMe({ fullName, email, preferredCurrency }: { fullName?: string; email?: string; preferredCurrency?: string }): Promise<User> {
+  return apiRequest<User>(
+    '/auth/me',
+    {
+      method: 'PATCH',
+      body: { fullName, email, preferredCurrency },
+    }
+  )
 }

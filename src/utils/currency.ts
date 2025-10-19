@@ -6,6 +6,7 @@ const currencySymbols: Record<string, string> = {
   AUD: 'A$',
   CAD: 'C$',
   JPY: '¥',
+  AED: 'د.إ',
 }
 
 export function formatCurrency(amount: number, currency: string = 'INR', locale: string = 'en-IN') {
@@ -30,5 +31,5 @@ export function getCurrencySymbol(currency: string = 'INR') {
 
 export function formatCurrencyWithSymbol(amount: number, currency: string = 'INR') {
   const symbol = getCurrencySymbol(currency)
-  return `${symbol}${amount.toLocaleString('en-IN')}`
+  return `${symbol} ${amount.toLocaleString('en-IN')}`
 }

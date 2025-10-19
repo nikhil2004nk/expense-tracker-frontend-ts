@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { logout } from '../services/auth'
+import { logout, me as fetchMe } from '../services/auth'
 import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 
 const navItems: Array<{ to: string; label: string; icon: ReactNode }> = [
   {
-    to: '/',
+    to: '/dashboard',
     label: 'Dashboard',
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
@@ -62,6 +63,42 @@ const navItems: Array<{ to: string; label: string; icon: ReactNode }> = [
 
 export default function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
+  const [userName, setUserName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const u = await fetchMe()
+        if (!active) return
+        setUserName((u as any).fullName || '')
+        setUserEmail((u as any).email || '')
+      } catch {
+        try {
+          const raw = localStorage.getItem('userPreferences')
+          if (raw) {
+            const prefs = JSON.parse(raw)
+            setUserName(prefs?.name || '')
+            setUserEmail(prefs?.email || '')
+          }
+        } catch {}
+      }
+    }
+    load()
+
+    const onPrefsUpdated = () => {
+      try {
+        const raw = localStorage.getItem('userPreferences')
+        if (!raw) return
+        const prefs = JSON.parse(raw)
+        setUserName(prefs?.name || '')
+        setUserEmail(prefs?.email || '')
+      } catch {}
+    }
+    window.addEventListener('userPreferencesUpdated', onPrefsUpdated as any)
+    return () => { active = false; window.removeEventListener('userPreferencesUpdated', onPrefsUpdated as any) }
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -94,7 +131,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
 
         <nav className="p-4 space-y-2">
           {navItems.map(({ to, label, icon }) => (
-            <NavLink key={to} to={to} onClick={onClose} end={to === '/'}>
+            <NavLink key={to} to={to} onClick={onClose} end={to === '/dashboard'}>
               {({ isActive }) => (
                 <div
                   className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${
@@ -122,8 +159,8 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">User Account</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Free Plan</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{userName || 'User Account'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{userEmail || '—'}</p>
               </div>
             </div>
 

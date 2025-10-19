@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Modal } from '../components/common'
-import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useToast } from '../components/ToastProvider'
-import { getCurrencySymbol, formatCurrencyWithSymbol } from '../utils/currency'
+import { useCurrency } from '../contexts/CurrencyContext'
 import { budgetService } from '../services/budgets'
 import { fetchCategories, type Category } from '../services/categories'
 import type { Budget } from '../services/budgets'
@@ -18,8 +17,7 @@ export default function Budgets() {
   const [loading, setLoading] = useState(false)
   const [loadingCategories, setLoadingCategories] = useState(true)
 
-  const [userPreferences] = useLocalStorage('userPreferences', { currency: 'INR' })
-  const currencySymbol = getCurrencySymbol(userPreferences.currency)
+  const { symbol, fcs } = useCurrency()
 
   // Load categories on component mount
   useEffect(() => {
@@ -268,8 +266,8 @@ export default function Budgets() {
                   // Normal Budget Layout
                   <>
                     <div className="flex items-baseline gap-2 mb-3">
-                      <span className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white truncate">{formatCurrencyWithSymbol(budget.spent, userPreferences.currency)}</span>
-                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">/ {formatCurrencyWithSymbol(budget.budget, userPreferences.currency)}</span>
+                      <span className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white truncate">{fcs(budget.spent)}</span>
+                      <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex-shrink-0">/ {fcs(budget.budget)}</span>
                     </div>
                     <div className="mb-3">
                       <div className="flex justify-between text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">
@@ -293,14 +291,14 @@ export default function Budgets() {
                             <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
-                            <span className="truncate">{formatCurrencyWithSymbol(budget.spent - budget.budget, userPreferences.currency)} over</span>
+                            <span className="truncate">{fcs(budget.spent - budget.budget)} over</span>
                           </span>
                         ) : (
                           <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                             <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="truncate">{formatCurrencyWithSymbol(budget.budget - budget.spent, userPreferences.currency)} left</span>
+                            <span className="truncate">{fcs(budget.budget - budget.spent)} left</span>
                           </span>
                         )}
                       </span>
@@ -377,7 +375,7 @@ export default function Budgets() {
             <label htmlFor="budgetAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Budget Amount *</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <span className="text-gray-500 dark:text-gray-400 text-sm font-medium">{currencySymbol}</span>
+                <span className="text-gray-500 dark:text-gray-400 text-sm font-medium">{symbol}</span>
               </div>
               <input
                 id="budgetAmount"

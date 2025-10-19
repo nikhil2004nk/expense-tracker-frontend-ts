@@ -4,14 +4,26 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useToast } from '../components/ToastProvider'
 import { useLocalStorage } from '../hooks/useLocalStorage'
-import { useTheme } from '../contexts/ThemeContext'
-import { me as fetchMe } from '../services/auth'
+ 
+import { me as fetchMe, changePassword, deleteMe, updateMe } from '../services/auth'
+import { ConfirmModal } from '../components/common'
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
   currency: z.string().min(1, 'Currency is required'),
 })
+
+const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+    confirmNewPassword: z.string().min(1, 'Please confirm your new password'),
+  })
+  .refine((data) => data.newPassword === data.confirmNewPassword, {
+    path: ['confirmNewPassword'],
+    message: 'Passwords do not match',
+  })
 
 const currencies = [
   { value: 'INR', label: 'INR - Indian Rupee', symbol: '₹' },
@@ -21,20 +33,25 @@ const currencies = [
   { value: 'AUD', label: 'AUD - Australian Dollar', symbol: 'A$' },
   { value: 'CAD', label: 'CAD - Canadian Dollar', symbol: 'C$' },
   { value: 'JPY', label: 'JPY - Japanese Yen', symbol: '¥' },
+  { value: 'AED', label: 'AED - UAE Dirham', symbol: 'د.إ' },
 ]
 
-const themes = [
-  { value: 'light', label: 'Light', icon: '☀️' },
-  { value: 'dark', label: 'Dark', icon: '🌙' },
-] as const
+ 
 
 type ProfileForm = z.infer<typeof profileSchema>
+type ChangePasswordForm = z.infer<typeof changePasswordSchema>
 
 export default function Profile() {
   const { show } = useToast()
-  const { theme, setTheme } = useTheme()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [isChanging, setIsChanging] = useState(false)
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false)
+  const [showNewPwd, setShowNewPwd] = useState(false)
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const [storedPreferences, setStoredPreferences] = useLocalStorage('userPreferences', {
     name: '',
@@ -47,6 +64,32 @@ export default function Profile() {
     defaultValues: storedPreferences as ProfileForm,
   })
 
+  const { register: registerPwd, handleSubmit: handleSubmitPwd, reset: resetPwd, formState: { errors: pwdErrors }, watch: watchPwd } = useForm<ChangePasswordForm>({
+    resolver: zodResolver(changePasswordSchema) as any,
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
+    },
+  })
+
+  const newPwdValue = watchPwd('newPassword') || ''
+  const pwdStrength = (() => {
+    const len = newPwdValue.length
+    const hasLower = /[a-z]/.test(newPwdValue)
+    const hasUpper = /[A-Z]/.test(newPwdValue)
+    const hasNumber = /\d/.test(newPwdValue)
+    const hasSymbol = /[^A-Za-z0-9]/.test(newPwdValue)
+    let score = 0
+    if (len >= 8) score++
+    if (hasLower && hasUpper) score++
+    if (hasNumber) score++
+    if (hasSymbol) score++
+    const label = score <= 1 ? 'Weak' : score === 2 ? 'Fair' : score === 3 ? 'Good' : 'Strong'
+    const color = score <= 1 ? 'bg-red-500' : score === 2 ? 'bg-yellow-500' : score === 3 ? 'bg-emerald-500' : 'bg-emerald-600'
+    return { score, label, color }
+  })()
+
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -55,10 +98,11 @@ export default function Profile() {
         const profileData: ProfileForm = {
           name: (apiData as any).fullName ?? storedPreferences.name ?? '',
           email: (apiData as any).email ?? storedPreferences.email ?? '',
-          currency: storedPreferences.currency ?? 'INR',
+          currency: (apiData as any).preferredCurrency ?? storedPreferences.currency ?? 'INR',
         }
         reset(profileData)
         setStoredPreferences(profileData)
+        try { window.dispatchEvent(new Event('userPreferencesUpdated')) } catch {}
       } catch (error) {
         console.warn('Failed to load from API, using local storage:', error)
         reset(storedPreferences)
@@ -70,20 +114,16 @@ export default function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const handleThemeChange = (newTheme: 'light' | 'dark') => {
-    setTheme(newTheme)
-  }
+  
 
   const onSubmit = async (data: ProfileForm) => {
     try {
       setIsSaving(true)
+      // Persist to backend (full name, email, preferred currency)
+      await updateMe({ fullName: data.name, email: data.email, preferredCurrency: data.currency })
       setStoredPreferences(data)
-      try {
-        await new Promise((r) => setTimeout(r, 1000))
-        show('Profile saved successfully!', { type: 'success' })
-      } catch {
-        show('Profile saved locally (offline mode)', { type: 'warning' })
-      }
+      try { window.dispatchEvent(new Event('userPreferencesUpdated')) } catch {}
+      show('Profile saved successfully!', { type: 'success' })
       reset(data)
     } catch {
       show('Failed to save profile. Please try again.', { type: 'error' })
@@ -96,55 +136,45 @@ export default function Profile() {
     reset(storedPreferences)
   }
 
-  const handleChangePassword = () => {
-    show('Password change feature coming soon!', { type: 'info' })
+  const handleChangePasswordToggle = () => {
+    setShowChangePassword((v) => !v)
   }
 
-  const handleExportData = () => {
+  const onSubmitPassword = async (data: ChangePasswordForm) => {
     try {
-      const userData = {
-        profile: storedPreferences,
-        exportDate: new Date().toISOString(),
-        version: '1.0',
-      }
-      const dataStr = JSON.stringify(userData, null, 2)
-      const dataBlob = new Blob([dataStr], { type: 'application/json' })
-      const url = URL.createObjectURL(dataBlob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `expense-tracker-data-${new Date().toISOString().split('T')[0]}.json`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-      show('Data exported successfully!', { type: 'success' })
-    } catch {
-      show('Failed to export data. Please try again.', { type: 'error' })
+      setIsChanging(true)
+      await changePassword({ currentPassword: data.currentPassword, newPassword: data.newPassword })
+      show('Password changed successfully', { type: 'success' })
+      resetPwd()
+      setShowChangePassword(false)
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to change password'
+      show(msg, { type: 'error' })
+    } finally {
+      setIsChanging(false)
     }
   }
 
+  
+
   const handleDeleteAccount = () => {
-    const confirmed = window.confirm(
-      '⚠️ Warning: This action cannot be undone!\n\n' +
-        'Are you sure you want to permanently delete your account?\n' +
-        'All your data will be lost forever.'
-    )
-    if (confirmed) {
-      const doubleConfirm = window.confirm(
-        'This is your last chance!\n\n' + 'Type YES in the next prompt to confirm account deletion.'
-      )
-      if (doubleConfirm) {
-        const finalConfirm = window.prompt('Type "DELETE" to confirm (all caps):')
-        if (finalConfirm === 'DELETE') {
-          localStorage.clear()
-          show('Account deleted successfully. Goodbye!', { type: 'success' })
-          setTimeout(() => {
-            window.location.href = '/login'
-          }, 2000)
-        } else {
-          show('Account deletion cancelled.', { type: 'info' })
-        }
-      }
+    setShowDeleteModal(true)
+  }
+
+  const onConfirmDelete = async () => {
+    try {
+      setIsDeleting(true)
+      await deleteMe()
+      localStorage.clear()
+      show('Account deleted successfully. Goodbye!', { type: 'success' })
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 800)
+    } catch (e: any) {
+      show(e?.message || 'Failed to delete account', { type: 'error' })
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteModal(false)
     }
   }
 
@@ -241,38 +271,7 @@ export default function Profile() {
         </form>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white">Theme Preference</h2>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">Choose your preferred theme - changes apply immediately</p>
-        </div>
-        <div className="p-4 sm:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {themes.map((themeOption) => (
-              <button
-                key={themeOption.value}
-                type="button"
-                onClick={() => handleThemeChange(themeOption.value)}
-                className={`relative flex cursor-pointer rounded-lg p-4 border-2 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${theme === themeOption.value ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}
-              >
-                <div className="flex items-center justify-center w-full">
-                  <div className="text-center">
-                    <div className="text-2xl mb-2">{themeOption.icon}</div>
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">{themeOption.label}</div>
-                  </div>
-                </div>
-                {theme === themeOption.value && (
-                  <div className="absolute top-2 right-2">
-                    <svg className="h-5 w-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-gray-700">
@@ -285,15 +284,96 @@ export default function Profile() {
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">Change Password</h3>
               <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Update your account password</p>
             </div>
-            <button onClick={handleChangePassword} className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 self-start sm:self-auto flex-shrink-0">Change Password</button>
+            <button onClick={handleChangePasswordToggle} className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 self-start sm:self-auto flex-shrink-0">{showChangePassword ? 'Close' : 'Change Password'}</button>
           </div>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Export Data</h3>
-              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Download your profile and transaction data</p>
-            </div>
-            <button onClick={handleExportData} className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 self-start sm:self-auto flex-shrink-0">Export Data</button>
-          </div>
+          {showChangePassword && (
+            <form onSubmit={handleSubmitPwd(onSubmitPassword)} className="space-y-3 sm:space-y-4 bg-gray-50 dark:bg-gray-900/30 p-4 rounded-md border border-gray-200 dark:border-gray-700">
+              <div>
+                <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Current Password *</label>
+                <div className="relative">
+                  <input
+                    id="currentPassword"
+                    type={showCurrentPwd ? 'text' : 'password'}
+                    className={`block w-full rounded-md border pr-10 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 ${pwdErrors.currentPassword ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                    placeholder="Enter current password"
+                    {...registerPwd('currentPassword')}
+                  />
+                  <button type="button" onClick={() => setShowCurrentPwd((v) => !v)} className="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xs">
+                    {showCurrentPwd ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                {pwdErrors.currentPassword && <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{pwdErrors.currentPassword.message}</p>}
+              </div>
+              <div>
+                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">New Password *</label>
+                <div className="relative">
+                  <input
+                    id="newPassword"
+                    type={showNewPwd ? 'text' : 'password'}
+                    className={`block w-full rounded-md border pr-10 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 ${pwdErrors.newPassword ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                    placeholder="Enter new password"
+                    {...registerPwd('newPassword')}
+                  />
+                  <button type="button" onClick={() => setShowNewPwd((v) => !v)} className="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xs">
+                    {showNewPwd ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <div className="mt-2">
+                  <div className="flex gap-1 h-1.5">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className={`flex-1 rounded ${i < pwdStrength.score ? pwdStrength.color : 'bg-gray-200 dark:bg-gray-700'}`}></div>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Strength: {pwdStrength.label}</p>
+                </div>
+                {pwdErrors.newPassword && <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{pwdErrors.newPassword.message}</p>}
+              </div>
+              <div>
+                <label htmlFor="confirmNewPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirm New Password *</label>
+                <div className="relative">
+                  <input
+                    id="confirmNewPassword"
+                    type={showConfirmPwd ? 'text' : 'password'}
+                    className={`block w-full rounded-md border pr-10 px-3 py-2 text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400 ${pwdErrors.confirmNewPassword ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
+                    placeholder="Confirm new password"
+                    {...registerPwd('confirmNewPassword')}
+                  />
+                  <button type="button" onClick={() => setShowConfirmPwd((v) => !v)} className="absolute inset-y-0 right-2 flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xs">
+                    {showConfirmPwd ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                {pwdErrors.confirmNewPassword && <p className="mt-2 text-sm text-red-600 dark:text-red-400" role="alert">{pwdErrors.confirmNewPassword.message}</p>}
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { resetPwd(); setShowChangePassword(false) }}
+                  className="w-auto sm:w-fit px-4 sm:px-5 py-1 sm:py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isChanging}
+                >
+                  {isChanging ? 'Canceling...' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isChanging}
+                  className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-md shadow-sm flex items-center justify-center"
+                >
+                  {isChanging ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Changing...
+                    </>
+                  ) : (
+                    'Change Password'
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+          
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-medium text-red-600 dark:text-red-400">Delete Account</h3>
@@ -303,6 +383,16 @@ export default function Profile() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => !isDeleting && setShowDeleteModal(false)}
+        onConfirm={onConfirmDelete}
+        title="Delete account?"
+        message="This action is permanent and will remove all your data. Are you sure you want to continue?"
+        confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+        cancelText={isDeleting ? 'Please wait' : 'Cancel'}
+        type="danger"
+      />
     </div>
   )
 }

@@ -1,11 +1,56 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { ThemeToggleCompact } from './ThemeToggle'
-import { logout } from '../services/auth'
-import { useState } from 'react'
+import { logout, me as fetchMe } from '../services/auth'
+import { useEffect, useMemo, useState } from 'react'
 
 export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
   const navigate = useNavigate()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [userName, setUserName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+
+  useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const u = await fetchMe()
+        if (!active) return
+        setUserName((u as any).fullName || '')
+        setUserEmail((u as any).email || '')
+      } catch {
+        try {
+          const raw = localStorage.getItem('userPreferences')
+          if (raw) {
+            const prefs = JSON.parse(raw)
+            setUserName(prefs?.name || '')
+            setUserEmail(prefs?.email || '')
+          }
+        } catch {}
+      }
+    }
+    load()
+    const onPrefsUpdated = () => {
+      try {
+        const raw = localStorage.getItem('userPreferences')
+        if (!raw) return
+        const prefs = JSON.parse(raw)
+        setUserName(prefs?.name || '')
+        setUserEmail(prefs?.email || '')
+      } catch {}
+    }
+    window.addEventListener('userPreferencesUpdated', onPrefsUpdated as any)
+    return () => window.removeEventListener('userPreferencesUpdated', onPrefsUpdated as any)
+  }, [])
+
+  const initials = useMemo(() => {
+    const first = (userName && userName.trim()) ? userName.trim().split(' ')[0] : (userEmail ? userEmail.split('@')[0] : 'U')
+    return first.charAt(0).toUpperCase()
+  }, [userName, userEmail])
+  const firstName = useMemo(() => {
+    if (userName && userName.trim()) return userName.trim().split(' ')[0]
+    if (userEmail && userEmail.includes('@')) return userEmail.split('@')[0]
+    return 'Account'
+  }, [userName, userEmail])
   return (
     <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -42,11 +87,11 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
                 aria-expanded={showUserMenu}
               >
                 <div className="h-8 w-8 rounded-full bg-emerald-600 dark:bg-emerald-700 flex items-center justify-center text-white font-semibold">
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                  </svg>
+                  {initials}
                 </div>
-                <span className="hidden md:inline">Account</span>
+                <span className="hidden md:inline max-w-[140px] truncate" title={userName || userEmail}>
+                  {firstName}
+                </span>
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -58,8 +103,8 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
                   <div className="absolute right-0 z-40 mt-2 w-56 origin-top-right rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none border border-gray-200 dark:border-gray-700">
                     <div className="p-2">
                       <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 mb-2">
-                        <p className="font-medium text-gray-900 dark:text-white">Welcome back!</p>
-                        <p className="truncate">Expense Tracker User</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{userName || 'Welcome back!'}</p>
+                        {userEmail && <p className="truncate">{userEmail}</p>}
                       </div>
 
                       <NavLink

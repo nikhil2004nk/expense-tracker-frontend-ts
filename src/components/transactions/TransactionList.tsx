@@ -3,7 +3,10 @@ import { fetchTransactions, deleteTransaction, seedDemoIfEmpty, type Transaction
 import { useToast } from '../ToastProvider'
 import { LoaderCard, ConfirmModal } from '../common'
 import { useDebounce } from '../../hooks/useDebounce'
-import { formatCurrencyWithSymbol } from '../../utils/currency'
+import { getApiBaseUrl } from '../../services/api-client'
+import { useCurrency } from '../../contexts/CurrencyContext'
+import { useSettings } from '../../contexts/SettingsContext'
+import { formatDate } from '../../utils/date'
 
 export type TransactionListRef = {
   refresh: () => Promise<void>
@@ -15,6 +18,8 @@ type TransactionListProps = {
 
 const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ onEdit }, ref) => {
   const { show } = useToast()
+  const { fcs } = useCurrency()
+  const { settings } = useSettings()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState('')
@@ -85,6 +90,8 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
     return list
   }, [transactions, debouncedCategoryFilter, sortBy])
 
+  const API_BASE = getApiBaseUrl()
+
   if (loading) {
     return <LoaderCard message="Loading transactions..." />
   }
@@ -125,7 +132,8 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
           </select>
         </div>
 
-        <div className="block sm:hidden">
+        <div className="max-h-[60vh] overflow-y-auto">
+          <div className="block sm:hidden">
           {filteredSorted.map((t) => (
             <div key={t.id} className="border-t border-gray-200 dark:border-gray-700 p-3">
               <div className="space-y-3">
@@ -149,13 +157,13 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
                           <span className="text-gray-400 dark:text-gray-500">Uncategorized</span>
                         )}
                       </span>
-                      <span className="text-base font-semibold text-gray-900 dark:text-white">{formatCurrencyWithSymbol(t.amount)}</span>
+                      <span className="text-base font-semibold text-gray-900 dark:text-white">{fcs(t.amount)}</span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{t.date}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(t.date, settings.dateFormat)}</p>
                     {t.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{t.notes}</p>}
                     {t.receiptUrl && (
                       <a
-                        href={t.receiptUrl}
+                        href={t.receiptUrl.startsWith('http') ? t.receiptUrl : `${API_BASE}${t.receiptUrl}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 mt-1 inline-block underline"
@@ -182,10 +190,10 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
               </div>
             </div>
           ))}
-        </div>
+          </div>
 
-        <div className="hidden sm:block overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="min-w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
               <tr>
                 {['Date', 'Category', 'Amount', 'Notes', 'Receipt', 'Actions'].map((h) => (
@@ -196,7 +204,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredSorted.map((t) => (
                 <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-4 py-3 text-gray-900 dark:text-gray-300">{t.date}</td>
+                  <td className="px-4 py-3 text-gray-900 dark:text-gray-300">{formatDate(t.date, settings.dateFormat)}</td>
                   <td className="px-4 py-3">
                     <span 
                       className="font-medium px-2 py-1 rounded inline-flex items-center"
@@ -216,12 +224,12 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{formatCurrencyWithSymbol(t.amount)}</td>
+                  <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{fcs(t.amount)}</td>
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-xs truncate">{t.notes}</td>
                   <td className="px-4 py-3">
                     {t.receiptUrl ? (
                       <a
-                        href={t.receiptUrl}
+                        href={t.receiptUrl.startsWith('http') ? t.receiptUrl : `${API_BASE}${t.receiptUrl}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800 rounded"
@@ -251,7 +259,8 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       </div>
 

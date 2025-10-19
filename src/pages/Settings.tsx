@@ -1,21 +1,14 @@
 import { useState } from 'react'
-import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useToast } from '../components/ToastProvider'
+import { useTheme } from '../contexts/ThemeContext'
+import { useSettings } from '../contexts/SettingsContext'
 
 export default function Settings() {
   const { show } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const { theme, setTheme } = useTheme()
 
-  const [settings, setSettings] = useLocalStorage('appSettings', {
-    notifications: true,
-    emailReports: false,
-    autoBackup: true,
-    language: 'en',
-    dateFormat: 'DD/MM/YYYY',
-    fiscalYearStart: 'april',
-    budgetAlertThreshold: 80,
-    defaultTransactionView: 'all',
-  })
+  const { settings, setSettings } = useSettings()
 
   const handleSettingChange = (key: string, value: any) => {
     setSettings((prev: any) => ({ ...prev, [key]: value }))
@@ -41,6 +34,34 @@ export default function Settings() {
       </div>
 
       <div className="space-y-4 sm:space-y-6">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
+          <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">Theme Preference</h2>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">Choose your preferred theme - changes apply immediately</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[{ value: 'light', label: 'Light', icon: '☀️' }, { value: 'dark', label: 'Dark', icon: '🌙' }].map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTheme(t.value as 'light' | 'dark')}
+                className={`relative flex cursor-pointer rounded-lg p-4 border-2 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${theme === t.value ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}
+              >
+                <div className="flex items-center justify-center w-full">
+                  <div className="text-center">
+                    <div className="text-2xl mb-2">{t.icon}</div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{t.label}</div>
+                  </div>
+                </div>
+                {theme === t.value && (
+                  <div className="absolute top-2 right-2">
+                    <svg className="h-5 w-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">Regional Preferences</h2>
           <div className="space-y-4 sm:space-y-6">

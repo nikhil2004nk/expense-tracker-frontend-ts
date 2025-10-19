@@ -12,6 +12,7 @@ import Settings from './pages/Settings'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import RequireAuth from './routes/RequireAuth'
+import { CurrencyProvider } from './contexts/CurrencyContext'
 
 const router = createHashRouter([
   {
@@ -37,6 +38,8 @@ const router = createHashRouter([
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <CurrencyProvider>
+      <RouterProvider router={router} />
+    </CurrencyProvider>
   </StrictMode>,
 )
