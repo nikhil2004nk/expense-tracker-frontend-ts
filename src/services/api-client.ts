@@ -66,7 +66,8 @@ export async function apiRequest<T = any>(
     let { response, data } = await doRequest(url, config)
 
     // If unauthorized, try refreshing tokens once and retry the original request
-    if (response.status === 401) {
+    // Skip refresh flow for auth endpoints like /auth/login, /auth/register, /auth/me, etc.
+    if (response.status === 401 && !path.startsWith('/auth/')) {
       const refreshUrl = `${API_BASE}/auth/refresh`
       const refreshResp = await fetch(refreshUrl, {
         method: 'POST',

@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { ThemeToggleCompact } from './ThemeToggle'
-import { logout, me as fetchMe } from '../services/auth'
+import { logout, me as fetchMe, isAuthenticated } from '../services/auth'
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../contexts/I18nContext'
 
@@ -13,6 +13,9 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
 
   useEffect(() => {
     let active = true
+    if (!isAuthenticated()) {
+      return
+    }
     const load = async () => {
       try {
         const u = await fetchMe()
