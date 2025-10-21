@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import ArrowPathIcon from '../components/icons/ArrowPathIcon'
+import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import TransactionForm from '../components/transactions/TransactionForm'
 import TransactionList, { type TransactionListRef } from '../components/transactions/TransactionList'
 import { createTransaction, updateTransaction, type Transaction } from '../services/transactions'
@@ -43,7 +43,7 @@ export default function Transactions() {
         <button
           onClick={handleRefresh}
           className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-          title="Refresh"
+          title={t('refresh')}
         >
           <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>

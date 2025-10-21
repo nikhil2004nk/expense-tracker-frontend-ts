@@ -4,7 +4,7 @@ import { useToast } from '../components/ToastProvider'
 import { fetchCategories, createCategory, updateCategory, deleteCategory, type Category } from '../services/categories'
 import { useI18n } from '../contexts/I18nContext'
 import { useSettings } from '../contexts/SettingsContext'
-import ArrowPathIcon from '../components/icons/ArrowPathIcon'
+import { ArrowPathIcon, PlusIcon, TagIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'
 
 // Predefined emoji icons for quick selection
 const EMOJI_OPTIONS = ['🛒', '🍕', '🚗', '🎬', '💡', '🏥', '🛍️', '✈️', '🏠', '📱', '⚽', '🎓', '💰', '🎨', '🍔', '☕', '🎮', '📚', '💼', '🏋️']
@@ -163,7 +163,7 @@ export default function Categories() {
           <button
             onClick={handleRefresh}
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-            title="Refresh"
+            title={t('refresh')}
           >
             <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
@@ -180,9 +180,7 @@ export default function Categories() {
               </>
             ) : (
               <>
-                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                <PlusIcon className="h-4 w-4 mr-2" />
                 {t('add_category')}
               </>
             )}
@@ -201,9 +199,7 @@ export default function Categories() {
       ) : categories.length === 0 ? (
         <div className="text-center py-10 sm:py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm px-4">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 mb-3 sm:mb-4">
-            <svg className="h-7 w-7 sm:h-8 sm:w-8 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
+            <TagIcon className="h-7 w-7 sm:h-8 sm:w-8 text-emerald-600 dark:text-emerald-400" />
           </div>
           <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">{t('no_categories_yet')}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 sm:mb-6 max-w-sm mx-auto">{t('create_first_category_hint')}</p>
@@ -212,9 +208,7 @@ export default function Categories() {
             disabled={loading}
             className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+            <PlusIcon className="h-4 w-4 mr-2" />
             {t('add_category')}
           </button>
         </div>
@@ -296,9 +290,7 @@ export default function Categories() {
             />
             {formErrors.name && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+                <ExclamationCircleIcon className="h-4 w-4" />
                 {formErrors.name}
               </p>
             )}

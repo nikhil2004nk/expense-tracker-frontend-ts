@@ -4,19 +4,20 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { useI18n } from '../contexts/I18nContext'
 import { updateUserSettings } from '../services/userSettings'
-import ArrowPathIcon from '../components/icons/ArrowPathIcon'
+import { ArrowPathIcon, CheckIcon } from '@heroicons/react/24/outline'
 
 export default function Settings() {
   const { show } = useToast()
   const [isSaving, setIsSaving] = useState(false)
-  const { theme, setTheme } = useTheme()
   const { t } = useI18n()
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const { theme, setTheme } = useTheme()
+  const [initialTheme, setInitialTheme] = useState(theme)
+  const [draftTheme, setDraftTheme] = useState<'light' | 'dark'>(theme)
 
   const { settings, setSettings } = useSettings()
 
   // Local draft state; only commit to contexts/backend on Save
-  const [draftTheme, setDraftTheme] = useState<'light' | 'dark'>(theme)
   const [draft, setDraft] = useState({
     language: settings.language as 'en' | 'hi' | 'mr',
     dateFormat: settings.dateFormat as 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD',
@@ -43,6 +44,12 @@ export default function Settings() {
   ) => {
     setDraft((prev) => ({ ...prev, [key]: value }))
   }
+  const hasSettingsChanges =
+    draft.language !== settings.language ||
+    draft.dateFormat !== settings.dateFormat ||
+    draft.fiscalYearStart !== settings.fiscalYearStart ||
+    draft.budgetAlertThreshold !== settings.budgetAlertThreshold ||
+    draftTheme !== initialTheme
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -54,7 +61,6 @@ export default function Settings() {
         budget_alert_threshold: draft.budgetAlertThreshold,
       })
       // Apply to contexts only after successful save
-      setTheme(draftTheme)
       setSettings((prev: any) => ({
         ...prev,
         language: draft.language,
@@ -67,6 +73,9 @@ export default function Settings() {
         defaultTransactionView: draft.defaultTransactionView,
         autoBackup: draft.autoBackup,
       }))
+      // Apply theme to UI only after successful save
+      setTheme(draftTheme)
+      setInitialTheme(draftTheme)
       show(t('settings_save_success'), { type: 'success' })
     } catch {
       show(t('settings_save_error'), { type: 'error' })
@@ -74,10 +83,6 @@ export default function Settings() {
       setIsSaving(false)
     }
   }
-  // Keep draft in sync when contexts change (e.g., from app bootstrap)
-  useEffect(() => {
-    setDraftTheme(theme)
-  }, [theme])
   useEffect(() => {
     setDraft({
       language: settings.language as 'en' | 'hi' | 'mr',
@@ -99,6 +104,15 @@ export default function Settings() {
     settings.defaultTransactionView,
     settings.autoBackup,
   ])
+  useEffect(() => {
+    // keep draftTheme in sync with current theme if it changes externally
+    setDraftTheme(theme)
+  }, [theme])
+  useEffect(() => {
+    // capture baseline theme at mount for save-change detection
+    setInitialTheme(theme)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -117,7 +131,7 @@ export default function Settings() {
             }, 2000)
           }}
           className="h-9 inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 self-start"
-          title="Refresh"
+          title={t('refresh')}
         >
           <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
@@ -133,7 +147,10 @@ export default function Settings() {
               <button
                 key={tItem.value}
                 type="button"
-                onClick={() => setDraftTheme(tItem.value as 'light' | 'dark')}
+                onClick={() => {
+                  const next = tItem.value as 'light' | 'dark'
+                  setDraftTheme(next)
+                }}
                 className={`relative flex cursor-pointer rounded-lg p-4 border-2 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 ${draftTheme === tItem.value ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'}`}
               >
                 <div className="flex items-center justify-center w-full">
@@ -144,9 +161,7 @@ export default function Settings() {
                 </div>
                 {draftTheme === tItem.value && (
                   <div className="absolute top-2 right-2">
-                    <svg className="h-5 w-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
+                    <CheckIcon className="h-5 w-5 text-emerald-600" />
                   </div>
                 )}
               </button>
@@ -156,6 +171,7 @@ export default function Settings() {
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('regional_preferences')}</h2>
           <div className="space-y-4 sm:space-y-6">
+            
             <div>
               <label htmlFor="language" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('language_label')}</label>
               <select
@@ -203,6 +219,46 @@ export default function Settings() {
         </div>
 
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
+          <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('budget_alerts_title')}</h2>
+          <div className="space-y-4 sm:space-y-6">
+            <div>
+              <label htmlFor="budgetAlertThreshold" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('budget_alert_threshold_label')}</label>
+              <div className="flex items-center gap-4">
+                <input
+                  id="budgetAlertThreshold"
+                  type="range"
+                  min={50}
+                  max={100}
+                  step={5}
+                  value={draft.budgetAlertThreshold}
+                  onChange={(e) => handleSettingChange('budgetAlertThreshold', parseInt(e.target.value))}
+                  className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
+                />
+                <span className="text-sm font-medium text-gray-900 dark:text-white min-w-[3rem] text-right">{draft.budgetAlertThreshold}%</span>
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('budget_alert_hint')}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={handleSave}
+            disabled={isSaving || !hasSettingsChanges}
+            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <>
+                <ArrowPathIcon className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" />
+                {t('saving')}
+              </>
+            ) : (
+              t('save_settings')
+            )}
+          </button>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('notifications_title')}</h2>
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -233,44 +289,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
-          <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('budget_alerts_title')}</h2>
-          <div className="space-y-4 sm:space-y-6">
-            <div>
-              <label htmlFor="budgetAlertThreshold" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('budget_alert_threshold_label')}</label>
-              <div className="flex items-center gap-4">
-                <input
-                  id="budgetAlertThreshold"
-                  type="range"
-                  min={50}
-                  max={100}
-                  step={5}
-                  value={draft.budgetAlertThreshold}
-                  onChange={(e) => handleSettingChange('budgetAlertThreshold', parseInt(e.target.value))}
-                  className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-600"
-                />
-                <span className="text-sm font-medium text-gray-900 dark:text-white min-w-[3rem] text-right">{draft.budgetAlertThreshold}%</span>
-              </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('budget_alert_hint')}</p>
-            </div>
-
-            <div>
-              <label htmlFor="defaultTransactionView" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('default_tx_view_label')}</label>
-              <select
-                id="defaultTransactionView"
-                value={draft.defaultTransactionView}
-                onChange={(e) => handleSettingChange('defaultTransactionView', e.target.value)}
-                className="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm shadow-sm focus:outline.none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:text-white"
-              >
-                <option value="all">{t('view_all_transactions')}</option>
-                <option value="income">{t('income_only')}</option>
-                <option value="expense">{t('expenses_only')}</option>
-                <option value="month">{t('current_month')}</option>
-                <option value="week">{t('this_week')}</option>
-              </select>
-            </div>
-          </div>
-        </div>
+        
 
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('data_privacy_title')}</h2>
@@ -307,25 +326,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="flex justify-end">
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSaving ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {t('saving')}
-              </>
-            ) : (
-              t('save_settings')
-            )}
-          </button>
-        </div>
+        
       </div>
     </div>
   )

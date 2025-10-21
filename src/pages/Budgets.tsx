@@ -6,7 +6,16 @@ import { budgetService } from '../services/budgets'
 import { fetchCategories, type Category } from '../services/categories'
 import type { Budget } from '../services/budgets'
 import { useI18n } from '../contexts/I18nContext'
-import ArrowPathIcon from '../components/icons/ArrowPathIcon'
+import { 
+  ArrowPathIcon,
+  PlusIcon,
+  RectangleStackIcon,
+  BanknotesIcon,
+  TrashIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  ExclamationCircleIcon
+} from '@heroicons/react/24/outline'
 import { useSettings } from '../contexts/SettingsContext'
 
 export default function Budgets() {
@@ -171,7 +180,7 @@ export default function Budgets() {
           <button
             onClick={handleRefresh}
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-            title="Refresh"
+            title={t('refresh')}
           >
             <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
@@ -188,9 +197,7 @@ export default function Budgets() {
               </>
             ) : (
               <>
-                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                <PlusIcon className="h-4 w-4 mr-2" />
                 {t('add_budget')}
               </>
             )}
@@ -209,9 +216,7 @@ export default function Budgets() {
       ) : budgetData.length === 0 ? (
         <div className="text-center py-10 sm:py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm px-4">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 mb-3 sm:mb-4">
-            <svg className="h-7 w-7 sm:h-8 sm:w-8 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
+            <RectangleStackIcon className="h-7 w-7 sm:h-8 sm:w-8 text-emerald-600 dark:text-emerald-400" />
           </div>
           <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">{t('no_budgets_yet')}</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 sm:mb-6 max-w-sm mx-auto">{t('create_first_budget_hint')}</p>
@@ -220,9 +225,7 @@ export default function Budgets() {
             disabled={loading}
             className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
+            <PlusIcon className="h-4 w-4 mr-2" />
             {t('add_budget')}
           </button>
         </div>
@@ -270,9 +273,7 @@ export default function Budgets() {
                     <div className="flex items-center justify-center mb-4">
                       <div className="text-center">
                         <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 mb-3">
-                          <svg className="h-8 w-8 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
+                          <BanknotesIcon className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
                         </div>
                         <p className="text-sm text-gray-900 dark:text-white font-medium mb-1">{t('no_budget_amount_set')}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{t('set_budget_limit_hint')}</p>
@@ -281,16 +282,12 @@ export default function Budgets() {
                     <div className="flex items-center gap-2">
                       <button onClick={() => handleEditBudget(budget)} disabled={loading} className="flex-1 px-4 py-2 text-sm text-white bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title={t('create_budget')}>
                         <span className="flex items-center justify-center gap-2">
-                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
+                          <PlusIcon className="h-4 w-4" />
                           {t('create_budget')}
                         </span>
                       </button>
                       <button onClick={() => handleDeleteBudget(budget)} disabled={loading} className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title={t('delete')}>
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        <TrashIcon className="h-4 w-4" />
                       </button>
                     </div>
                   </>
@@ -319,16 +316,12 @@ export default function Budgets() {
                       <span className="text-xs sm:text-sm font-medium">
                         {isOverBudget ? (
                           <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
-                            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
+                            <ExclamationTriangleIcon className="h-4 w-4 flex-shrink-0" />
                             <span className="truncate">{fcs(budget.spent - budget.budget)} {t('over_budget')}</span>
                           </span>
                         ) : (
                           <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            <CheckCircleIcon className="h-4 w-4 flex-shrink-0" />
                             <span className="truncate">{fcs(budget.budget - budget.spent)}</span>
                           </span>
                         )}
@@ -365,9 +358,7 @@ export default function Budgets() {
                 rel="noopener noreferrer"
                 className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium inline-flex items-center gap-1"
               >
-                <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
+                <PlusIcon className="h-3 w-3" />
                 {t('create_category')}
               </a>
             </div>
@@ -387,9 +378,7 @@ export default function Budgets() {
             </select>
             {formErrors.categoryId && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+                <ExclamationCircleIcon className="h-4 w-4" />
                 {formErrors.categoryId}
               </p>
             )}
@@ -421,9 +410,7 @@ export default function Budgets() {
             </div>
             {formErrors.amount && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
+                <ExclamationCircleIcon className="h-4 w-4" />
                 {formErrors.amount}
               </p>
             )}

@@ -7,6 +7,7 @@ import ToastProvider from './components/ToastProvider'
 import { SettingsProvider, useSettings } from './contexts/SettingsContext'
 import { I18nProvider } from './contexts/I18nContext'
 import { getUserSettings } from './services/userSettings'
+import ScrollToTop from './components/common/ScrollToTop'
 
 function AppInner() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -52,7 +53,8 @@ function AppInner() {
 
         <div className="flex flex-1 flex-col min-w-0">
           <Header onMenuToggle={() => setIsSidebarOpen((v) => !v)} />
-          <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+          <ScrollToTop />
+          <main id="app-scroll" className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
             <div className="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
               <Outlet />
             </div>

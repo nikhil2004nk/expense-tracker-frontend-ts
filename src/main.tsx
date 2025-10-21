@@ -12,6 +12,9 @@ import Settings from './pages/Settings'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
 import RequireAuth from './routes/RequireAuth'
+import { SettingsProvider } from './contexts/SettingsContext'
+import { I18nProvider } from './contexts/I18nContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import { CurrencyProvider } from './contexts/CurrencyContext'
 
 const router = createHashRouter([
@@ -32,8 +35,30 @@ const router = createHashRouter([
       { path: 'settings', element: <Settings /> },
     ],
   },
-  { path: '/login', element: <Login /> },
-  { path: '/register', element: <Register /> },
+  {
+    path: '/login',
+    element: (
+      <SettingsProvider>
+        <I18nProvider>
+          <ThemeProvider>
+            <Login />
+          </ThemeProvider>
+        </I18nProvider>
+      </SettingsProvider>
+    ),
+  },
+  {
+    path: '/register',
+    element: (
+      <SettingsProvider>
+        <I18nProvider>
+          <ThemeProvider>
+            <Register />
+          </ThemeProvider>
+        </I18nProvider>
+      </SettingsProvider>
+    ),
+  },
 ])
 
 createRoot(document.getElementById('root')!).render(

@@ -1,15 +1,26 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { ThemeToggleCompact } from './ThemeToggle'
 import { logout, me as fetchMe, isAuthenticated } from '../services/auth'
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../contexts/I18nContext'
+import { Bars3Icon, CurrencyRupeeIcon, ChevronDownIcon, UserCircleIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, MoonIcon, SunIcon, LanguageIcon } from '@heroicons/react/24/outline'
+import { useTheme } from '../contexts/ThemeContext'
+import { useSettings } from '../contexts/SettingsContext'
 
 export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { t } = useI18n()
   const navigate = useNavigate()
+  const { currentTheme, mounted } = useTheme()
+  const { settings } = useSettings()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [userName, setUserName] = useState('')
   const [userEmail, setUserEmail] = useState('')
+
+  const langLabel = useMemo(() => {
+    const code = (settings?.language || 'en') as string
+    if (code === 'hi') return 'हिं'
+    if (code === 'mr') return 'मरा'
+    return 'En'
+  }, [settings?.language])
 
   useEffect(() => {
     let active = true
@@ -66,23 +77,40 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
               className="lg:hidden inline-flex items-center justify-center rounded-md p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
               onClick={onMenuToggle}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
-                <path fillRule="evenodd" d="M3 6.75A.75.75 0 0 1 3.75 6h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 6.75Zm0 5.25a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 12Zm.75 4.5a.75.75 0 0 0 0 1.5h16.5a.75.75 0 0 0 0-1.5H3.75Z" clipRule="evenodd" />
-              </svg>
+              <Bars3Icon className="h-6 w-6" />
             </button>
             <NavLink
               to="/"
               className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
             >
-              <svg className="h-8 w-8 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-              </svg>
+              <CurrencyRupeeIcon className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
               <span className="hidden sm:block">{t('app_title')}</span>
             </NavLink>
           </div>
 
           <div className="flex items-center gap-4">
-            <ThemeToggleCompact />
+            <button
+              onClick={() => navigate('/settings')}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
+              aria-label={t('theme_preference') || 'Theme settings'}
+              title={t('theme_preference') || 'Theme settings'}
+            >
+              {mounted && currentTheme === 'dark' ? (
+                <MoonIcon className="h-4 w-4" />
+              ) : (
+                <SunIcon className="h-4 w-4" />
+              )}
+            </button>
+
+            <button
+              onClick={() => navigate('/settings')}
+              className="inline-flex items-center gap-1 justify-center h-8 px-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
+              aria-label={t('language_label') || 'Language settings'}
+              title={t('language_label') || 'Language settings'}
+            >
+              <LanguageIcon className="h-4 w-4" />
+              <span className="text-xs font-medium">{langLabel}</span>
+            </button>
 
             <div className="relative">
               <button
@@ -97,9 +125,7 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
                 <span className="hidden md:inline max-w-[140px] truncate" title={userName || userEmail}>
                   {firstName}
                 </span>
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                <ChevronDownIcon className="h-4 w-4" />
               </button>
 
               {showUserMenu && (
@@ -117,9 +143,7 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
                         onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
+                        <UserCircleIcon className="h-5 w-5" />
                         {t('profile')}
                       </NavLink>
 
@@ -128,10 +152,7 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
                         onClick={() => setShowUserMenu(false)}
                         className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                        <Cog6ToothIcon className="h-5 w-5" />
                         {t('settings')}
                       </NavLink>
 
@@ -145,9 +166,7 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
                         }}
                         className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       >
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
+                        <ArrowRightOnRectangleIcon className="h-5 w-5" />
                         {t('logout')}
                       </button>
                     </div>

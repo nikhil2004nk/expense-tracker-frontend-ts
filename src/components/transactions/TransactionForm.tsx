@@ -10,6 +10,7 @@ import { useToast } from '../ToastProvider'
 import { Loader } from '../common'
 import { useI18n } from '../../contexts/I18nContext'
 import { useSettings } from '../../contexts/SettingsContext'
+import { PlusIcon, ChevronDownIcon, ArrowUpTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
 
 // Date helpers (use local timezone, not UTC ISO, to avoid off-by-one issues)
 function formatLocalISODate(d: Date) {
@@ -247,9 +248,7 @@ export default function TransactionForm({
               rel="noopener noreferrer"
               className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium inline-flex items-center gap-1"
             >
-              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
+              <PlusIcon className="h-3 w-3" />
               {t('create_new')}
             </a>
           </div>
@@ -275,9 +274,7 @@ export default function TransactionForm({
                 </span>
                 {selectedCategory ? getCategoryName(selectedCategory) : t('no_category_option')}
               </span>
-              <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+              <ChevronDownIcon className="h-4 w-4 flex-shrink-0" />
             </button>
             {catOpen && (
               <div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
@@ -430,9 +427,7 @@ export default function TransactionForm({
               }}
             >
               <div className="space-y-1 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <ArrowUpTrayIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
                 <div className="flex text-sm text-gray-600 dark:text-gray-400">
                   <label htmlFor="receipt" className="relative cursor-pointer bg-white dark:bg-gray-800 rounded-md font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 dark:hover:text-emerald-300 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-emerald-500">
                     <span>{t('upload_a_file')}</span>
@@ -459,10 +454,8 @@ export default function TransactionForm({
           )}
           {receiptUrl && !uploading && (
             <div className="mt-2 flex items-center justify-between gap-3 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2">
-              <div className="flex items.center gap-2 min-w-0">
-                <svg className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h8.586A2 2 0 0014 16.586L17.586 13A2 2 0 0018 11.586V5a2 2 0 00-2-2H4z" />
-                </svg>
+              <div className="flex items-center gap-2 min-w-0">
+                <DocumentTextIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                 <span className="truncate text-sm text-gray-700 dark:text-gray-300" title={receiptName || t('document')}>{receiptName || t('document')}</span>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
