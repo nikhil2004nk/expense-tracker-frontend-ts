@@ -4,12 +4,14 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { useI18n } from '../contexts/I18nContext'
 import { updateUserSettings } from '../services/userSettings'
+import ArrowPathIcon from '../components/icons/ArrowPathIcon'
 
 export default function Settings() {
   const { show } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const { theme, setTheme } = useTheme()
   const { t } = useI18n()
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const { settings, setSettings } = useSettings()
 
@@ -100,9 +102,26 @@ export default function Settings() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('settings_title')}</h1>
-        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings_subtitle')}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('settings_title')}</h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('settings_subtitle')}</p>
+        </div>
+        <button
+          onClick={() => {
+            if (isRefreshing) return
+            setIsRefreshing(true)
+            setTimeout(() => {
+              setIsRefreshing(false)
+              window.location.reload()
+            }, 2000)
+          }}
+          className="h-9 inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 self-start"
+          title="Refresh"
+        >
+          <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+        </button>
       </div>
 
       <div className="space-y-4 sm:space-y-6">

@@ -51,6 +51,12 @@ const messages: Record<Locale, Record<string, string>> = {
     no_budget_amount_set: 'No budget amount set',
     set_budget_limit_hint: 'Set your budget limit to start tracking',
     progress: 'Progress',
+    getting_started: 'Getting started',
+    add_first_expense: 'Add your first expense or income',
+    set_monthly_budgets: 'Set monthly budgets for key categories',
+    track_progress_here: 'Track your progress here on the dashboard',
+    you_will_see: 'You will see',
+    tips_update_often: 'Tips: Add transactions regularly to keep insights fresh.',
 
     // Transactions list
     loading_transactions: 'Loading transactions...',
@@ -271,6 +277,12 @@ const messages: Record<Locale, Record<string, string>> = {
     no_budget_amount_set: 'कोई बजट राशि निर्धारित नहीं है',
     set_budget_limit_hint: 'ट्रैकिंग शुरू करने के लिए अपना बजट निर्धारित करें',
     progress: 'प्रगति',
+    getting_started: 'शुरू करें',
+    add_first_expense: 'अपना पहला खर्च या आय जोड़ें',
+    set_monthly_budgets: 'मुख्य श्रेणियों के लिए मासिक बजट सेट करें',
+    track_progress_here: 'अपनी प्रगति यहाँ डैशबोर्ड पर ट्रैक करें',
+    you_will_see: 'आप यहाँ देखेंगे',
+    tips_update_often: 'टिप: इनसाइट्स ताज़ा रखने के लिए नियमित रूप से लेन-देन जोड़ें।',
 
     loading_transactions: 'लेन-देन लोड हो रहे हैं...',
     no_transactions: 'कोई लेन-देन नहीं',
@@ -490,6 +502,12 @@ const messages: Record<Locale, Record<string, string>> = {
     no_budget_amount_set: 'कोणतीही बजेट रक्कम सेट केलेली नाही',
     set_budget_limit_hint: 'ट्रॅकिंग सुरू करण्यासाठी तुमची बजेट मर्यादा सेट करा',
     progress: 'प्रगती',
+    getting_started: 'सुरू करा',
+    add_first_expense: 'तुमचा पहिला खर्च किंवा उत्पन्न जोडा',
+    set_monthly_budgets: 'महत्त्वाच्या श्रेणींसाठी मासिक अंदाजपत्रके सेट करा',
+    track_progress_here: 'तुमची प्रगती येथे डॅशबोर्डवर ट्रॅक करा',
+    you_will_see: 'येथे दिसेल',
+    tips_update_often: 'टीप: इनसाइट्स ताजी ठेवण्यासाठी नियमितपणे व्यवहार जोडा.',
 
     loading_transactions: 'व्यवहार लोड होत आहेत...',
     no_transactions: 'कोणतेही व्यवहार नाहीत',

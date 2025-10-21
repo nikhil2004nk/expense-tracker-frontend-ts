@@ -6,6 +6,7 @@ import { budgetService } from '../services/budgets'
 import { fetchCategories, type Category } from '../services/categories'
 import type { Budget } from '../services/budgets'
 import { useI18n } from '../contexts/I18nContext'
+import ArrowPathIcon from '../components/icons/ArrowPathIcon'
 import { useSettings } from '../contexts/SettingsContext'
 
 export default function Budgets() {
@@ -21,6 +22,7 @@ export default function Budgets() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingCategories, setLoadingCategories] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const { symbol, fcs } = useCurrency()
 
@@ -64,6 +66,14 @@ export default function Budgets() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleRefresh = () => {
+    if (isRefreshing) return
+    setIsRefreshing(true)
+    Promise.resolve(loadBudgets()).finally(() => {
+      setTimeout(() => setIsRefreshing(false), 2000)
+    })
   }
 
   const getProgressPercentage = (spent: number, budget: number) => Math.min((spent / budget) * 100, 100)
@@ -157,25 +167,35 @@ export default function Budgets() {
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('budgets_title_page')}</h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('budgets_subtitle')}</p>
         </div>
-        <button
-          onClick={handleOpenModal}
-          disabled={loading}
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <>
-              <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              {t('loading_budgets')}
-            </>
-          ) : (
-            <>
-              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              {t('add_budget')}
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            title="Refresh"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+          </button>
+          <button
+            onClick={handleOpenModal}
+            disabled={loading}
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                {t('loading_budgets')}
+              </>
+            ) : (
+              <>
+                <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                {t('add_budget')}
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {loading && budgetData.length === 0 ? (

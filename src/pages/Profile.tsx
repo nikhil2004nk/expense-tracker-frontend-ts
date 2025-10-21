@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useToast } from '../components/ToastProvider'
+import ArrowPathIcon from '../components/icons/ArrowPathIcon'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useI18n } from '../contexts/I18nContext'
 
@@ -52,6 +53,8 @@ export default function Profile() {
   const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [reloadTick, setReloadTick] = useState(0)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const [storedPreferences, setStoredPreferences] = useLocalStorage('userPreferences', {
     name: '',
@@ -112,7 +115,14 @@ export default function Profile() {
     }
     loadProfile()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [reloadTick])
+
+  const handleRefresh = () => {
+    if (isRefreshing) return
+    setIsRefreshing(true)
+    setReloadTick((v) => v + 1)
+    setTimeout(() => setIsRefreshing(false), 2000)
+  }
 
   const onSubmit = async (data: ProfileForm) => {
     try {
@@ -177,7 +187,17 @@ export default function Profile() {
   if (isLoading) {
     return (
       <div className="space-y-4 sm:space-y-6">
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('profile_settings_title')}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('profile_settings_title')}</h1>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            title="Refresh"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+          </button>
+        </div>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
         </div>
@@ -187,9 +207,19 @@ export default function Profile() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('profile_settings_title')}</h1>
-        <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{t('manage_account_prefs')}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('profile_settings_title')}</h1>
+          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">{t('manage_account_prefs')}</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          className="h-9 inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 self-start"
+          title="Refresh"
+        >
+          <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+        </button>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">

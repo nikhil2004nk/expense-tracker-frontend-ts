@@ -20,6 +20,7 @@ import { useSettings } from '../contexts/SettingsContext'
 import { formatDate } from '../utils/date'
 import { useI18n } from '../contexts/I18nContext'
 import { fetchCategories, type Category } from '../services/categories'
+import ArrowPathIcon from '../components/icons/ArrowPathIcon'
 
 export default function Dashboard() {
   const { fc } = useCurrency()
@@ -30,6 +31,8 @@ export default function Dashboard() {
   const { t } = useI18n()
   const locale = settings.language as 'en' | 'hi' | 'mr'
   const [categories, setCategories] = useState<Category[]>([])
+  const [reloadTick, setReloadTick] = useState(0)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -57,7 +60,14 @@ export default function Dashboard() {
       isMounted = false
       controller.abort()
     }
-  }, [])
+  }, [reloadTick])
+
+  function handleRefresh() {
+    if (isRefreshing) return
+    setIsRefreshing(true)
+    setReloadTick((v) => v + 1)
+    setTimeout(() => setIsRefreshing(false), 2000)
+  }
 
   // Load categories for localization mapping
   useEffect(() => {
@@ -83,7 +93,17 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            title="Refresh"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+          </button>
+        </div>
         <LoaderCard message={t('loading_dashboard')} />
       </div>
     )
@@ -92,7 +112,19 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            title="Refresh"
+          >
+            <svg className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992m0 0V4.356m0 4.992L18.3 7.636A8.25 8.25 0 1012 20.25a8.25 8.25 0 007.5-4.5" />
+            </svg>
+            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+          </button>
+        </div>
         <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
           <div className="flex items-center gap-3">
             <svg className="h-5 w-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
@@ -111,7 +143,19 @@ export default function Dashboard() {
   if (!dashboardData) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            title="Refresh"
+          >
+            <svg className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992m0 0V4.356m0 4.992L18.3 7.636A8.25 8.25 0 1012 20.25a8.25 8.25 0 007.5-4.5" />
+            </svg>
+            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+          </button>
+        </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-6">
           <p className="text-gray-600 dark:text-gray-400">{t('no_data')}</p>
         </div>
@@ -144,9 +188,116 @@ export default function Dashboard() {
     return c ? ((c as any)[`name_${locale}`] || c.name) : name
   }
 
+  // Safe translation fallback to avoid rendering raw keys when missing
+  const tf = (key: string, fallback: string) => {
+    const val = t(key)
+    return val === key ? fallback : val
+  }
+
+  // First-time dashboard when there are no transactions yet
+  if (dashboardData && dashboardData.transactionCount === 0) {
+    return (
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            title="Refresh"
+          >
+            <svg className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.023 9.348h4.992m0 0V4.356m0 4.992L18.3 7.636A8.25 8.25 0 1012 20.25a8.25 8.25 0 007.5-4.5" />
+            </svg>
+            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+          </button>
+        </div>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 sm:p-6 md:p-8 text-center shadow-sm">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
+          <h2 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-1">{t('no_transactions')}</h2>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-4">{t('get_started_add_first')}</p>
+          <div className="flex items-center justify-center gap-2">
+            <Link
+              to="/transactions"
+              className="inline-flex items-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+            >
+              {t('add_transaction')}
+            </Link>
+            <Link
+              to="/budgets"
+              className="inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              {t('budgets_title')}
+            </Link>
+          </div>
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">{tf('getting_started', 'Getting started')}</h3>
+              </div>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="text-gray-700 dark:text-gray-300">{tf('add_first_expense', 'Add your first expense or income')}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="text-gray-700 dark:text-gray-300">{tf('set_monthly_budgets', 'Set monthly budgets for key categories')}</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 inline-block h-2 w-2 rounded-full bg-emerald-400" />
+                  <span className="text-gray-700 dark:text-gray-300">{tf('track_progress_here', 'Track your progress here on the dashboard')}</span>
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">{tf('you_will_see', 'You will see')}</h3>
+                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+                </svg>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('balance') || 'Balance'}</div>
+                  <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{fc(0)}</div>
+                </div>
+                <div className="rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('total_spent') || 'Spent'}</div>
+                  <div className="text-sm font-semibold text-rose-700 dark:text-rose-400">{fc(0)}</div>
+                </div>
+                <div className="rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3">
+                  <div className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">{t('total_budget') || 'Budget'}</div>
+                  <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">{fc(0)}</div>
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">{tf('tips_update_often', 'Tips: Add transactions regularly to keep insights fresh.')}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+        <button
+          onClick={handleRefresh}
+          className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+          title="Refresh"
+        >
+          <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">

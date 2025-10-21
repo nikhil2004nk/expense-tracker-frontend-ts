@@ -11,11 +11,17 @@ import { Loader } from '../common'
 import { useI18n } from '../../contexts/I18nContext'
 import { useSettings } from '../../contexts/SettingsContext'
 
-// Date helpers
+// Date helpers (use local timezone, not UTC ISO, to avoid off-by-one issues)
+function formatLocalISODate(d: Date) {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 const todayISO = (() => {
   const d = new Date()
   d.setHours(0,0,0,0)
-  return d.toISOString().slice(0,10)
+  return formatLocalISODate(d)
 })()
 const minDateISO = (() => {
   const d = new Date()
@@ -23,7 +29,7 @@ const minDateISO = (() => {
   d.setFullYear(d.getFullYear() - 10)
   d.setMonth(0)
   d.setDate(1)
-  return d.toISOString().slice(0,10)
+  return formatLocalISODate(d)
 })()
 
 export type TransactionFormValues = {
@@ -360,7 +366,7 @@ export default function TransactionForm({
                   const d = new Date()
                   d.setDate(d.getDate() - 1)
                   d.setHours(0,0,0,0)
-                  setValue('date', d.toISOString().slice(0,10))
+                  setValue('date', formatLocalISODate(d))
                 }}>
                 {t('yesterday')}
               </button>
@@ -369,7 +375,7 @@ export default function TransactionForm({
                   const d = new Date()
                   d.setDate(d.getDate() - 7)
                   d.setHours(0,0,0,0)
-                  const iso = d.toISOString().slice(0,10)
+                  const iso = formatLocalISODate(d)
                   setValue('date', iso < minDateISO ? minDateISO : iso)
                 }}>
                 {t('seven_days_ago')}
@@ -379,7 +385,7 @@ export default function TransactionForm({
                   const d = new Date()
                   d.setDate(1)
                   d.setHours(0,0,0,0)
-                  setValue('date', d.toISOString().slice(0,10))
+                  setValue('date', formatLocalISODate(d))
                 }}>
                 {t('start_of_month')}
               </button>
