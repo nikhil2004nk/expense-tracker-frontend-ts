@@ -34,7 +34,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_API_URL: https://exptrackerapi.trishvifintech.com
+          VITE_API_URL: https://expense-tracker-service-mb35.onrender.com
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
