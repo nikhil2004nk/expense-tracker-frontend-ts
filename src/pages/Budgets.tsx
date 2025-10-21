@@ -34,6 +34,7 @@ export default function Budgets() {
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   const { symbol, fcs } = useCurrency()
+  const threshold = settings.budgetAlertThreshold
 
   // Load categories on component mount
   useEffect(() => {
@@ -205,6 +206,29 @@ export default function Budgets() {
         </div>
       </div>
 
+      {budgetData.some(b => b.budget > 0 && (b.spent / b.budget) * 100 >= threshold && (b.spent / b.budget) * 100 < 100) && (
+        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 sm:p-4">
+          <div className="flex items-start gap-2">
+            <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+            <div className="text-xs sm:text-sm text-amber-900 dark:text-amber-200">
+              {t('budget_threshold_notice')}
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {budgetData
+                  .filter(b => b.budget > 0)
+                  .map(b => ({ b, p: (b.spent / b.budget) * 100 }))
+                  .filter(x => x.p >= threshold && x.p < 100)
+                  .slice(0, 5)
+                  .map(({ b, p }) => (
+                    <span key={b.id} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
+                      {getCategoryName(b.category)} • {p.toFixed(0)}%
+                    </span>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {loading && budgetData.length === 0 ? (
         <div className="text-center py-10 sm:py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm px-4">
           <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-50 dark:bg-emerald-900/20 mb-3 sm:mb-4">
@@ -265,7 +289,9 @@ export default function Budgets() {
                     <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/50 flex-shrink-0">{t('setup_required')}</span>
                   ) : isOverBudget ? (
                     <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800/50 flex-shrink-0">{t('over_budget')}</span>
-                  ) : null}
+                  ) : (percentage >= threshold ? (
+                    <span className="inline-flex items-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50 flex-shrink-0">{t('nearing_limit')}</span>
+                  ) : null)}
                 </div>
 
                 {isSetupRequired ? (
@@ -300,14 +326,14 @@ export default function Budgets() {
                     <div className="mb-3">
                       <div className="flex justify-between text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">
                         <span>{t('progress')}</span>
-                        <span className={`${percentage >= 100 ? 'text-red-600 dark:text-red-400' : percentage >= 80 ? 'text-yellow-600 dark:text-yellow-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{percentage.toFixed(0)}%</span>
+                        <span className={`${percentage >= 100 ? 'text-red-600 dark:text-red-400' : percentage >= threshold ? 'text-yellow-600 dark:text-yellow-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{percentage.toFixed(0)}%</span>
                       </div>
                       <div className="h-2.5 rounded-full bg-gray-200 dark:bg-gray-700/50 overflow-hidden shadow-inner">
                         <div
                           className="h-2.5 rounded-full transition-all duration-500 ease-out shadow-sm"
                           style={{
                             width: `${Math.min(percentage, 100)}%`,
-                            backgroundColor: (categories.find(c => c.id === budget.categoryId)?.color || budget.category?.color) || (percentage >= 100 ? '#ef4444' : percentage >= 80 ? '#f59e0b' : '#10b981')
+                            backgroundColor: (categories.find(c => c.id === budget.categoryId)?.color || budget.category?.color) || (percentage >= 100 ? '#ef4444' : percentage >= threshold ? '#f59e0b' : '#10b981')
                           }}
                         />
                       </div>

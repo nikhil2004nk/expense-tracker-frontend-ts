@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [categories, setCategories] = useState<Category[]>([])
   const [reloadTick, setReloadTick] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const threshold = settings.budgetAlertThreshold
 
   useEffect(() => {
     let isMounted = true
@@ -521,11 +522,33 @@ export default function Dashboard() {
               {t('manage_all')}
             </Link>
           </div>
+          {budgets.some(b => b.budget > 0 && (b.spent / b.budget) * 100 >= threshold && (b.spent / b.budget) * 100 < 100) && (
+            <div className="mb-3 sm:mb-4 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-2.5 sm:p-3">
+              <div className="flex items-start gap-2">
+                <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                <div className="text-xs sm:text-sm text-amber-900 dark:text-amber-200">
+                  {t('budget_threshold_notice')}
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {budgets
+                      .filter(b => b.budget > 0)
+                      .map(b => ({ b, p: (b.spent / b.budget) * 100 }))
+                      .filter(x => x.p >= threshold && x.p < 100)
+                      .slice(0, 3)
+                      .map(({ b, p }) => (
+                        <span key={b.id} className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
+                          {getCatName(b.category)} • {p.toFixed(0)}%
+                        </span>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="space-y-3">
             {budgets.filter(b => b.budget > 0).slice(0, 5).map((budget) => {
               const percentage = budget.budget > 0 ? (budget.spent / budget.budget) * 100 : 0
               const isOverBudget = percentage > 100
-              const barColor = budget.category?.color || (isOverBudget ? '#ef4444' : percentage > 80 ? '#f59e0b' : '#10b981')
+              const barColor = budget.category?.color || (isOverBudget ? '#ef4444' : percentage > threshold ? '#f59e0b' : '#10b981')
               return (
                 <div key={budget.id}>
                   <div className="flex items-center justify-between text-xs sm:text-sm mb-1">
@@ -559,6 +582,7 @@ export default function Dashboard() {
                   <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     {percentage.toFixed(1)}% {t('used_suffix')}
                     {isOverBudget && <span className="text-rose-600 dark:text-rose-400 ml-2">{t('over_budget')}</span>}
+                    {!isOverBudget && percentage >= threshold && <span className="text-amber-600 dark:text-amber-400 ml-2">{t('nearing_limit')}</span>}
                   </div>
                 </div>
               )
