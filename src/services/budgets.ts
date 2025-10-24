@@ -37,8 +37,9 @@ export const budgetService = {
   /**
    * Get all budgets for the authenticated user
    */
-  async getAll(): Promise<Budget[]> {
-    return await apiRequest<Budget[]>('/budgets', { method: 'GET' });
+  async getAll(month?: string): Promise<Budget[]> {
+    const qs = month ? `?month=${encodeURIComponent(month)}` : ''
+    return await apiRequest<Budget[]>(`/budgets${qs}`, { method: 'GET' });
   },
 
   /**

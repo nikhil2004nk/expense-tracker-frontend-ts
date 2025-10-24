@@ -32,6 +32,16 @@ export default function Budgets() {
   const [loading, setLoading] = useState(false)
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    // Try to read from hash query param first for persistence
+    const hash = typeof window !== 'undefined' ? window.location.hash : ''
+    const query = hash.includes('?') ? hash.split('?')[1] : ''
+    const sp = new URLSearchParams(query)
+    const mm = sp.get('month')
+    if (mm && /^\d{4}-\d{2}$/.test(mm)) return mm
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
 
   const { symbol, fcs } = useCurrency()
   const threshold = settings.budgetAlertThreshold
@@ -41,10 +51,23 @@ export default function Budgets() {
     loadCategories()
   }, [])
 
-  // Load budgets on component mount
+  // Keep hash month in sync when user changes selection
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hash = window.location.hash || '#/budgets'
+    const [path, queryStr] = hash.split('?')
+    const sp = new URLSearchParams(queryStr || '')
+    sp.set('month', selectedMonth)
+    const next = `${path}?${sp.toString()}`
+    if (next !== hash) {
+      window.location.hash = next
+    }
+  }, [selectedMonth])
+
+  // Load budgets on mount and when month changes
   useEffect(() => {
     loadBudgets()
-  }, [])
+  }, [selectedMonth])
 
   const loadCategories = async () => {
     try {
@@ -67,7 +90,7 @@ export default function Budgets() {
   const loadBudgets = async () => {
     try {
       setLoading(true)
-      const budgets = await budgetService.getAll()
+      const budgets = await budgetService.getAll(selectedMonth)
       setBudgetData(budgets)
     } catch (error: any) {
       console.error('Failed to load budgets:', error)
@@ -178,6 +201,16 @@ export default function Budgets() {
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('budgets_subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
+          <label className="hidden sm:block text-xs text-gray-600 dark:text-gray-300">
+            {t('select_month') || 'Select month'}
+          </label>
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="h-9 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200"
+            aria-label="Select month"
+          />
           <button
             onClick={handleRefresh}
             className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"

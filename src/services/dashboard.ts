@@ -12,7 +12,13 @@ export type DashboardSummary = {
   categoryCount: number
   monthlyData: MonthlyData[]
   categoryData: CategoryData[]
+  categoryDataCompare?: CategoryData[]
+  selectedMonthKey: string
+  compareMonthKey?: string
+  selectedTotalExpense: number
+  compareTotalExpense?: number
   recentTransactions: Transaction[]
+  recentTransactionsMonth: Transaction[]
   budgets: Budget[]
 }
 
@@ -43,11 +49,11 @@ function isIncome(_transaction: Transaction): boolean {
 /**
  * Fetch and process dashboard data
  */
-export async function fetchDashboardData(options: { signal?: AbortSignal } = {}): Promise<DashboardSummary> {
-  // Fetch transactions and budgets in parallel
-  const [transactions, budgets] = await Promise.all([
-    fetchTransactions(options),
-    budgetService.getAll().catch(() => [] as Budget[]), // Don't fail if budgets fail
+export async function fetchDashboardData(options: { signal?: AbortSignal; month?: string; compareMonth?: string } = {}): Promise<DashboardSummary> {
+  // Always fetch all transactions for monthly trend
+  const [allTransactions, budgets] = await Promise.all([
+    fetchTransactions({ signal: options.signal }),
+    budgetService.getAll(options.month).catch(() => [] as Budget[]), // Don't fail if budgets fail
   ])
 
   // Calculate totals from budgets
@@ -67,7 +73,7 @@ export async function fetchDashboardData(options: { signal?: AbortSignal } = {})
   // Group by month - only show months that have transactions
   const monthMap = new Map<string, { income: number; expense: number; date: Date }>()
   
-  transactions.forEach(t => {
+  allTransactions.forEach(t => {
     const transactionDate = new Date(t.date)
     const monthKey = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`
     
@@ -97,9 +103,19 @@ export async function fetchDashboardData(options: { signal?: AbortSignal } = {})
     .reverse() // Reverse to show oldest to newest for chart
     .map(({ month, income, expense }) => ({ month, income, expense })) // Remove sortKey
 
-  // Group expenses by category
+  // Month keys
+  const now = new Date()
+  const targetMonthKey = (options.month ?? `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
+  const compareMonthKey = options.compareMonth
+
+  // Selected month transactions
+  const monthFilteredTransactions = allTransactions.filter(t => {
+    const d = new Date(t.date)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    return key === targetMonthKey
+  })
   const categoryMap = new Map<string, number>()
-  transactions.forEach(t => {
+  monthFilteredTransactions.forEach(t => {
     if (!isIncome(t)) {
       const amount = Math.abs(t.amount)
       const categoryName = t.category?.name || 'Uncategorized'
@@ -118,21 +134,57 @@ export async function fetchDashboardData(options: { signal?: AbortSignal } = {})
     }))
     .sort((a, b) => b.value - a.value) // Sort by value descending
 
-  // Get recent transactions (last 5)
-  const recentTransactions = transactions.slice(0, 5)
+  // Compare month (optional)
+  let categoryDataCompare: CategoryData[] | undefined
+  let compareTotalExpense: number | undefined
+  if (compareMonthKey) {
+    const compareTxns = allTransactions.filter(t => {
+      const d = new Date(t.date)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      return key === compareMonthKey
+    })
+    const compareMap = new Map<string, number>()
+    compareTxns.forEach(t => {
+      if (!isIncome(t)) {
+        const amount = Math.abs(t.amount)
+        const categoryName = t.category?.name || 'Uncategorized'
+        const currentAmount = compareMap.get(categoryName) || 0
+        compareMap.set(categoryName, currentAmount + amount)
+      }
+    })
+    const compareTotal = Array.from(compareMap.values()).reduce((s, v) => s + v, 0)
+    compareTotalExpense = compareTotal
+    categoryDataCompare = Array.from(compareMap.entries())
+      .map(([name, value]) => ({
+        name: name || 'Uncategorized',
+        value,
+        percentage: compareTotal > 0 ? (value / compareTotal) * 100 : 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+  }
+
+  // Get recent transactions (last 5 overall) and month-filtered (last 5 of selected month)
+  const recentTransactions = allTransactions.slice(0, 5)
+  const recentTransactionsMonth = monthFilteredTransactions.slice(0, 5)
 
   // Get unique categories
-  const categoryCount = new Set(transactions.map(t => t.category?.name || 'Uncategorized')).size
+  const categoryCount = new Set(allTransactions.map(t => t.category?.name || 'Uncategorized')).size
 
   return {
     totalIncome,
     totalExpense,
     balance,
-    transactionCount: transactions.length,
+    transactionCount: allTransactions.length,
     categoryCount,
     monthlyData,
     categoryData,
+    categoryDataCompare,
+    selectedMonthKey: targetMonthKey,
+    compareMonthKey,
+    selectedTotalExpense: totalExpenseForPercentage,
+    compareTotalExpense,
     recentTransactions,
+    recentTransactionsMonth,
     budgets,
   }
 }

@@ -46,6 +46,12 @@ export default function Dashboard() {
   const [reloadTick, setReloadTick] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const threshold = settings.budgetAlertThreshold
+  const now = new Date()
+  const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth)
+  const [compareEnabled, setCompareEnabled] = useState<boolean>(false)
+  const [compareMonth, setCompareMonth] = useState<string>('')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -55,7 +61,11 @@ export default function Dashboard() {
       try {
         setLoading(true)
         setError('')
-        const data = await fetchDashboardData({ signal: controller.signal })
+        const data = await fetchDashboardData({ 
+          signal: controller.signal,
+          month: selectedMonth,
+          compareMonth: compareEnabled && compareMonth ? compareMonth : undefined,
+        })
         if (!isMounted) return
         setDashboardData(data)
       } catch (e: any) {
@@ -73,7 +83,7 @@ export default function Dashboard() {
       isMounted = false
       controller.abort()
     }
-  }, [reloadTick])
+  }, [reloadTick, selectedMonth, compareEnabled, compareMonth])
 
   function handleRefresh() {
     if (isRefreshing) return
@@ -170,7 +180,7 @@ export default function Dashboard() {
     )
   }
 
-  const { totalIncome, totalExpense, balance, transactionCount, categoryCount, monthlyData, categoryData, recentTransactions, budgets } = dashboardData
+  const { totalIncome, totalExpense, balance, transactionCount, categoryCount, categoryData, recentTransactionsMonth, budgets, selectedMonthKey, compareMonthKey, selectedTotalExpense, compareTotalExpense } = dashboardData
 
   const getCatName = (cat?: any) => {
     if (!cat) return t('uncategorized')
@@ -288,14 +298,40 @@ export default function Dashboard() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
-        <button
-          onClick={handleRefresh}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-          title={t('refresh')}
-        >
-          <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm text-gray-900 dark:text-white"
+            aria-label="Select month"
+          />
+          <label className="flex items-center gap-1 text-xs sm:text-sm text-gray-700 dark:text-gray-200">
+            <input
+              type="checkbox"
+              checked={compareEnabled}
+              onChange={(e) => setCompareEnabled(e.target.checked)}
+            />
+            <span>{t('compare') || 'Compare'}</span>
+          </label>
+          {compareEnabled && (
+            <input
+              type="month"
+              value={compareMonth}
+              onChange={(e) => setCompareMonth(e.target.value)}
+              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm text-gray-900 dark:text-white"
+              aria-label="Select compare month"
+            />
+          )}
+          <button
+            onClick={handleRefresh}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            title={t('refresh')}
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -351,27 +387,49 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 sm:p-4 shadow-sm">
-          <h2 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('monthly_expenses')}</h2>
-          {monthlyData.length > 0 ? (
+          <h2 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">
+            {compareEnabled && compareMonthKey ? (t('monthly_comparison') || 'Monthly comparison') : t('monthly_expenses')}
+          </h2>
+          {compareEnabled && compareMonthKey ? (
             <div className="h-56 sm:h-64 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyData} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                <BarChart data={[
+                  { label: new Date(selectedMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: selectedTotalExpense },
+                  { label: new Date(compareMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: compareTotalExpense || 0 },
+                ]} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
-                  <XAxis dataKey="month" style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
+                  <XAxis dataKey="label" style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
                   <YAxis style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
-                  <Tooltip 
-                    formatter={(v: any) => fc(Number(v))} 
-                    contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #e5e7eb' }}
-                  />
+                  <Tooltip formatter={(v: any) => fc(Number(v))} contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #e5e7eb' }} />
                   <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
-                  <Bar dataKey="expense" name={t('total_spent')} fill="#EF4444" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expense" name={t('total_spent')} fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-56 sm:h-64 md:h-72 flex items-center justify-center">
-              <p className="text-gray-500 dark:text-gray-400">{t('no_txn_data')}</p>
-            </div>
+            selectedTotalExpense > 0 ? (
+              <div className="h-56 sm:h-64 md:h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { label: new Date(selectedMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: selectedTotalExpense },
+                  ]} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                    <XAxis dataKey="label" style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
+                    <YAxis style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
+                    <Tooltip 
+                      formatter={(v: any) => fc(Number(v))} 
+                      contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #e5e7eb' }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
+                    <Bar dataKey="expense" name={t('total_spent')} fill="#EF4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-56 sm:h-64 md:h-72 flex items-center justify-center">
+                <p className="text-gray-500 dark:text-gray-400">{t('no_txn_data')}</p>
+              </div>
+            )
           )}
         </div>
 
@@ -390,6 +448,7 @@ export default function Dashboard() {
                     outerRadius={typeof window !== 'undefined' && window.innerWidth < 640 ? 60 : 90}
                     label={(entry: any) => `${entry.percentage.toFixed(1)}%`}
                     labelLine={false}
+                    onClick={(d: any) => setSelectedCategory(d?.name || null)}
                   >
                     {categoryData.map((entry, index) => {
                       // Try to find matching budget to get category color (match against any localized name)
@@ -415,7 +474,7 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Transactions */}
-      {recentTransactions.length > 0 && (
+      {(recentTransactionsMonth?.length ?? 0) > 0 && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 sm:p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <h2 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">{t('recent_transactions')}</h2>
@@ -427,7 +486,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="space-y-2">
-            {recentTransactions.map((transaction) => (
+            {(selectedCategory ? recentTransactionsMonth.filter(rt => (rt.category?.name || 'Uncategorized') === selectedCategory) : recentTransactionsMonth).map((transaction) => (
               <div 
                 key={transaction.id} 
                 className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -461,6 +520,13 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
+            {selectedCategory && (
+              <div className="pt-2">
+                <button onClick={() => setSelectedCategory(null)} className="text-xs text-gray-600 dark:text-gray-300 hover:underline">
+                  {t('clear_filter') || 'Clear filter'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

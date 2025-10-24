@@ -54,8 +54,9 @@ export type UpdateTransactionDto = {
 /**
  * Fetch all transactions for the authenticated user
  */
-export async function fetchTransactions(options: { signal?: AbortSignal } = {}): Promise<Transaction[]> {
-  return apiRequest<Transaction[]>('/transactions', {
+export async function fetchTransactions(options: { signal?: AbortSignal; month?: string } = {}): Promise<Transaction[]> {
+  const qs = options.month ? `?month=${encodeURIComponent(options.month)}` : ''
+  return apiRequest<Transaction[]>(`/transactions${qs}`, {
     method: 'GET',
     signal: options.signal,
   })
