@@ -139,6 +139,11 @@ export default function Settings() {
       </div>
 
       <div className="space-y-4 sm:space-y-6">
+        {hasSettingsChanges && (
+          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 sm:p-4">
+            <p className="text-xs sm:text-sm text-amber-900 dark:text-amber-200">{t('save_to_apply_changes')}</p>
+          </div>
+        )}
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('theme_preference')}</h2>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">{t('theme_hint')}</p>

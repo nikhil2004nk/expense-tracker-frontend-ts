@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Modal } from '../components/common'
 import { useToast } from '../components/ToastProvider'
 import { useCurrency } from '../contexts/CurrencyContext'
@@ -42,6 +42,18 @@ export default function Budgets() {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
+
+  const formattedMonth = useMemo(() => {
+    const [yStr, mStr] = selectedMonth.split('-')
+    const y = Number(yStr)
+    const m = Number(mStr || '1')
+    const d = new Date(y, Math.max(0, m - 1), 1)
+    try {
+      return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(d)
+    } catch {
+      return d.toLocaleString(undefined, { month: 'long', year: 'numeric' })
+    }
+  }, [selectedMonth, locale])
 
   const { symbol, fcs } = useCurrency()
   const threshold = settings.budgetAlertThreshold
@@ -197,7 +209,7 @@ export default function Budgets() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('budgets_title_page')}</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('budgets_title_page')} - {formattedMonth}</h1>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('budgets_subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">

@@ -174,7 +174,7 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
     totalIncome,
     totalExpense,
     balance,
-    transactionCount: allTransactions.length,
+    transactionCount: monthFilteredTransactions.length,
     categoryCount,
     monthlyData,
     categoryData,

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
+import { Link } from 'react-router-dom'
 import { fetchTransactions, deleteTransaction, seedDemoIfEmpty, type Transaction } from '../../services/transactions'
 import { fetchCategories, type Category } from '../../services/categories'
 import { useToast } from '../ToastProvider'
@@ -27,6 +28,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [month, setMonth] = useState('')
   const [sortBy, setSortBy] = useState<'dateDesc' | 'dateAsc' | 'amountDesc' | 'amountAsc'>('dateDesc')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -47,14 +49,14 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
 
   const loadTransactions = useCallback(async (signal?: AbortSignal) => {
     try {
-      const list = await fetchTransactions({ signal })
+      const list = await fetchTransactions({ signal, month: month || undefined })
       setTransactions(list)
     } catch (e: any) {
       if (e.name !== 'AbortError') {
         show(e.message || 'Failed to load transactions', { type: 'error' })
       }
     }
-  }, [show])
+  }, [show, month])
 
   useEffect(() => {
     let active = true
@@ -114,6 +116,12 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
     return list
   }, [transactions, debouncedCategoryFilter, sortBy])
 
+  // Derived UI helpers
+  const filteredTotalAmount = useMemo(() => filteredSorted.reduce((sum, t) => sum + t.amount, 0), [filteredSorted])
+  const monthTitle = useMemo(() => (
+    month ? new Date(month + '-01').toLocaleDateString(locale, { month: 'long', year: 'numeric' }) : ''
+  ), [month, locale])
+
   const API_BASE = getApiBaseUrl()
 
   if (loading) {
@@ -126,8 +134,24 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
         <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
         <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">{t('no_transactions')}</h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {categoryFilter ? t('no_txn_match_filters') : t('get_started_add_first')}
+          {categoryFilter || month ? t('no_txn_match_filters') : t('get_started_add_first')}
         </p>
+        <div className="mt-4 flex items-center justify-center gap-2">
+          {(categoryFilter || month) && (
+            <button
+              onClick={() => { setCategoryFilter(''); setMonth('') }}
+              className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            >
+              {t('clear_filter')}
+            </button>
+          )}
+          <Link
+            to="/"
+            className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+          >
+            {t('dashboard')}
+          </Link>
+        </div>
       </div>
     )
   }
@@ -142,6 +166,23 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
             placeholder={t('filter_by_category')}
             className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
           />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              aria-label={t('select_month')}
+              className="w-full sm:w-auto rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
+            />
+            {month && (
+              <button
+                onClick={() => setMonth('')}
+                className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+              >
+                {t('clear_filter')}
+              </button>
+            )}
+          </div>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
@@ -152,6 +193,25 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
             <option value="amountDesc">{t('amount_desc')}</option>
             <option value="amountAsc">{t('amount_asc')}</option>
           </select>
+        </div>
+
+        {/* Summary bar */}
+        <div className="flex items-center justify-between px-3 py-2 sm:px-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/60">
+          <div className="text-xs sm:text-sm font-medium text-gray-800 dark:text-gray-200">
+            {filteredSorted.length} {t('transactions') || 'Transactions'}{monthTitle ? ` • ${monthTitle}` : ''}
+            {(categoryFilter || month) && (
+              <span className="ml-2 text-gray-500 dark:text-gray-400">{t('filters') || 'Filters'}:</span>
+            )}
+            {categoryFilter && (
+              <span className="ml-2 inline-flex items-center rounded px-2 py-0.5 text-[11px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">{categoryFilter}</span>
+            )}
+            {monthTitle && (
+              <span className="ml-2 inline-flex items-center rounded px-2 py-0.5 text-[11px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{monthTitle}</span>
+            )}
+          </div>
+          <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-300">
+            {t('total_spent') || 'Total'}: <span className="font-semibold text-gray-900 dark:text-white">{fcs(filteredTotalAmount)}</span>
+          </div>
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto">
@@ -216,7 +276,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
 
           <div className="hidden sm:block overflow-x-auto">
             <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+            <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 sticky top-0 z-10">
               <tr>
                 {[t('date'), t('category'), t('amount'), t('notes'), t('receipt'), t('actions')].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
@@ -225,7 +285,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredSorted.map((tItem) => (
-                <tr key={tItem.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <tr key={tItem.id} className="odd:bg-white even:bg-gray-50 dark:odd:bg-gray-800 dark:even:bg-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-4 py-3 text-gray-900 dark:text-gray-300">{formatDate(tItem.date, settings.dateFormat)}</td>
                   <td className="px-4 py-3">
                     <span 
