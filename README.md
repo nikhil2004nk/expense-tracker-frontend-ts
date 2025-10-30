@@ -1,12 +1,6 @@
 # Expense Tracker Frontend
 
-[Live Demo](https://nikhil2004nk.github.io/expense-tracker-frontend-ts/)
-
-## 🚀 [Live Demo]([https://nikhil2004nk.github.io/Expense-Tracker-Web-App/](https://nikhil2004nk.github.io/expense-tracker-frontend-ts/))
-
-
-## 🚀 [Live Demo](https://nikhil2004nk.github.io/Expense-Tracker-Web-App/)
-
+## 🚀 [Live Demo](https://nikhil2004nk.github.io/expense-tracker-frontend-ts/)
 
 A modern, fully-featured expense tracking application built with React, TypeScript, and Tailwind CSS. This frontend integrates seamlessly with the NestJS backend API for complete expense management.
 
