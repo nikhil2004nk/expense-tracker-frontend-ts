@@ -2,6 +2,7 @@
  * Dashboard service - processes transaction data for dashboard analytics
  */
 import { fetchTransactions, type Transaction } from './transactions'
+import type { BudgetCategory } from './budgets'
 import { budgetService, type Budget } from './budgets'
 
 export type DashboardSummary = {
@@ -16,22 +17,32 @@ export type DashboardSummary = {
   selectedMonthKey: string
   compareMonthKey?: string
   selectedTotalExpense: number
+  selectedTotalBudget: number
   compareTotalExpense?: number
+  compareTotalBudget?: number
   recentTransactions: Transaction[]
   recentTransactionsMonth: Transaction[]
   budgets: Budget[]
+  pendingSetup: PendingSetupItem[]
 }
 
 export type MonthlyData = {
   month: string
   income: number
   expense: number
+  budget: number
 }
 
 export type CategoryData = {
   name: string
   value: number
   percentage: number
+}
+
+export type PendingSetupItem = {
+  categoryId: string
+  category: BudgetCategory | Transaction['category'] | null
+  spent: number
 }
 
 /**
@@ -51,9 +62,10 @@ function isIncome(_transaction: Transaction): boolean {
  */
 export async function fetchDashboardData(options: { signal?: AbortSignal; month?: string; compareMonth?: string } = {}): Promise<DashboardSummary> {
   // Always fetch all transactions for monthly trend
-  const [allTransactions, budgets] = await Promise.all([
+  const [allTransactions, budgets, compareBudgets] = await Promise.all([
     fetchTransactions({ signal: options.signal }),
     budgetService.getAll(options.month).catch(() => [] as Budget[]), // Don't fail if budgets fail
+    options.compareMonth ? budgetService.getAll(options.compareMonth).catch(() => [] as Budget[]) : Promise.resolve([] as Budget[]),
   ])
 
   // Calculate totals from budgets
@@ -69,6 +81,10 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
   })
 
   const balance = totalIncome - totalExpense
+
+  // Selected month: total budget
+  const selectedTotalBudget = budgets.reduce((sum, b) => sum + (b.budget || 0), 0)
+  const compareTotalBudget = (compareBudgets?.length ?? 0) > 0 ? compareBudgets.reduce((s, b) => s + (b.budget || 0), 0) : undefined
 
   // Group by month - only show months that have transactions
   const monthMap = new Map<string, { income: number; expense: number; date: Date }>()
@@ -87,12 +103,12 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
   })
 
   // Convert to array, sort by date (most recent first), take last 6 months
-  const monthlyData: MonthlyData[] = Array.from(monthMap.entries())
+  const monthlyWithKeys = Array.from(monthMap.entries())
     .map(([monthKey, data]) => {
       const [year, month] = monthKey.split('-')
       const date = new Date(parseInt(year), parseInt(month) - 1, 1)
       return {
-        month: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        label: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
         income: 0, // Always 0 since we don't track income
         expense: data.expense,
         sortKey: monthKey,
@@ -101,7 +117,24 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
     .sort((a, b) => b.sortKey.localeCompare(a.sortKey)) // Most recent first
     .slice(0, 6) // Take last 6 months with transactions
     .reverse() // Reverse to show oldest to newest for chart
-    .map(({ month, income, expense }) => ({ month, income, expense })) // Remove sortKey
+
+  // Fetch budgets for those months to compute monthly total budget
+  const monthKeysForBudgets = monthlyWithKeys.map(m => m.sortKey)
+  const monthlyBudgetsArrays = await Promise.all(
+    monthKeysForBudgets.map(mk => budgetService.getAll(mk).catch(() => [] as Budget[]))
+  )
+  const budgetTotalsByKey = new Map<string, number>()
+  monthKeysForBudgets.forEach((mk, idx) => {
+    const total = monthlyBudgetsArrays[idx].reduce((sum, b) => sum + (b.budget || 0), 0)
+    budgetTotalsByKey.set(mk, total)
+  })
+
+  const monthlyData: MonthlyData[] = monthlyWithKeys.map(({ label, income, expense, sortKey }) => ({
+    month: label,
+    income,
+    expense,
+    budget: budgetTotalsByKey.get(sortKey) || 0,
+  }))
 
   // Month keys
   const now = new Date()
@@ -123,6 +156,26 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
       categoryMap.set(categoryName, currentAmount + amount)
     }
   })
+
+  // Pending setup: categories with transactions this month but no budget created for this month
+  const budgetCategoryIds = new Set<string>(budgets.map(b => b.categoryId))
+  const spentByCatId = new Map<string, number>()
+  monthFilteredTransactions.forEach(t => {
+    const cid = t.categoryId
+    if (!cid) return
+    const prev = spentByCatId.get(cid) || 0
+    spentByCatId.set(cid, prev + Math.abs(t.amount))
+  })
+  const pendingSetup: PendingSetupItem[] = Array.from(spentByCatId.entries())
+    .filter(([cid]) => !!cid && !budgetCategoryIds.has(cid))
+    .map(([cid, spent]) => {
+      const sampleTxn = monthFilteredTransactions.find(tx => tx.categoryId === cid)
+      return {
+        categoryId: cid,
+        category: sampleTxn?.category || null,
+        spent,
+      }
+    })
 
   // Convert to array and calculate percentages
   const totalExpenseForPercentage = Array.from(categoryMap.values()).reduce((sum, val) => sum + val, 0)
@@ -182,10 +235,13 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
     selectedMonthKey: targetMonthKey,
     compareMonthKey,
     selectedTotalExpense: totalExpenseForPercentage,
+    selectedTotalBudget,
     compareTotalExpense,
+    compareTotalBudget,
     recentTransactions,
     recentTransactionsMonth,
     budgets,
+    pendingSetup,
   }
 }
 

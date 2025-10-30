@@ -190,7 +190,7 @@ export default function Dashboard() {
     )
   }
 
-  const { totalIncome, totalExpense, balance, transactionCount, categoryCount, categoryData, recentTransactionsMonth, budgets, selectedMonthKey, compareMonthKey, selectedTotalExpense, compareTotalExpense } = dashboardData
+  const { totalIncome, totalExpense, balance, transactionCount, categoryCount, categoryData, recentTransactionsMonth, budgets, selectedMonthKey, compareMonthKey, selectedTotalExpense, selectedTotalBudget, compareTotalExpense, compareTotalBudget, pendingSetup } = dashboardData
 
   const getCatName = (cat?: any) => {
     if (!cat) return t('uncategorized')
@@ -371,8 +371,8 @@ export default function Dashboard() {
           </div>
           <div className="mt-1 sm:mt-2 text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{budgets.length}</div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {budgets.filter(b => b.budget === 0).length > 0 ? (
-              <span className="text-amber-600 dark:text-amber-400">{budgets.filter(b => b.budget === 0).length} {t('pending_setup')}</span>
+            {(pendingSetup?.length ?? 0) > 0 ? (
+              <span className="text-amber-600 dark:text-amber-400">{pendingSetup.length} {t('pending_setup')}</span>
             ) : (
               <span>{t('all_configured')}</span>
             )}
@@ -433,6 +433,7 @@ export default function Dashboard() {
                     <YAxis style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
                     <Tooltip formatter={(v: any) => fc(Number(v))} contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #e5e7eb' }} />
                     <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
+                    <Bar dataKey="budget" name={t('total_budget') || 'Budget'} fill="#10B981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expense" name={t('total_spent')} fill="#3B82F6" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -446,14 +447,15 @@ export default function Dashboard() {
             <div className="h-56 sm:h-64 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={[
-                  { label: new Date(selectedMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: selectedTotalExpense },
-                  { label: new Date(compareMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: compareTotalExpense || 0 },
+                  { label: new Date(selectedMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: selectedTotalExpense, budget: selectedTotalBudget },
+                  { label: new Date(compareMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: compareTotalExpense || 0, budget: (compareTotalBudget || 0) },
                 ]} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                   <XAxis dataKey="label" style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
                   <YAxis style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
                   <Tooltip formatter={(v: any) => fc(Number(v))} contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #e5e7eb' }} />
                   <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
+                  <Bar dataKey="budget" name={t('total_budget') || 'Budget'} fill="#10B981" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="expense" name={t('total_spent')} fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -463,7 +465,7 @@ export default function Dashboard() {
               <div className="h-56 sm:h-64 md:h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={[
-                    { label: new Date(selectedMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: selectedTotalExpense },
+                    { label: new Date(selectedMonthKey + '-01').toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), expense: selectedTotalExpense, budget: selectedTotalBudget },
                   ]} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                     <XAxis dataKey="label" style={{ fontSize: '0.75rem' }} className="fill-gray-600 dark:fill-gray-400" />
@@ -473,6 +475,7 @@ export default function Dashboard() {
                       contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #e5e7eb' }}
                     />
                     <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
+                    <Bar dataKey="budget" name={t('total_budget') || 'Budget'} fill="#10B981" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expense" name={t('total_spent')} fill="#EF4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -585,7 +588,7 @@ export default function Dashboard() {
       )}
 
       {/* Budgets Pending Setup */}
-      {budgets.filter(b => b.budget === 0).length > 0 && (
+      {(pendingSetup?.length ?? 0) > 0 && (
         <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 sm:p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div className="flex items-center gap-2">
@@ -603,25 +606,25 @@ export default function Dashboard() {
             {t('auto_created_hint')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {budgets.filter(b => b.budget === 0).map((budget) => (
+            {pendingSetup.map((ps) => (
               <div 
-                key={budget.id}
+                key={ps.categoryId}
                 className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800"
-                style={budget.category?.color ? {
+                style={ps.category?.color ? {
                   borderLeftWidth: '4px',
-                  borderLeftColor: budget.category.color
+                  borderLeftColor: ps.category.color
                 } : undefined}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <span className="text-lg flex-shrink-0">
-                    {budget.category?.icon || '📋'}
+                    {ps.category?.icon || '📋'}
                   </span>
                   <span className="text-xs sm:text-sm font-medium text-amber-900 dark:text-amber-200 truncate">
-                    {getCatName(budget.category)}
+                    {getCatName(ps.category)}
                   </span>
                 </div>
                 <span className="text-xs text-amber-700 dark:text-amber-400 ml-2 flex-shrink-0">
-                  {t('spent')}: {fc(budget.spent)}
+                  {t('spent')}: {fc(ps.spent)}
                 </span>
               </div>
             ))}

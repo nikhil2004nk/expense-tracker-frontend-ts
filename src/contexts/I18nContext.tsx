@@ -198,6 +198,11 @@ const messages: Record<Locale, Record<string, string>> = {
     or_type_hex: 'Or type hex color (e.g., #10b981)',
     update_category: 'Update Category',
     create_category: 'Create Category',
+    category_name_required: 'Category name is required',
+    category_name_min: 'Category name must be at least 2 characters',
+    category_name_max: 'Category name must not exceed 100 characters',
+    category_created: 'Category created successfully!',
+    failed_save_category: 'Failed to save category. Please try again.',
 
     // Budgets page
     budgets_title_page: 'Budgets',
@@ -209,6 +214,8 @@ const messages: Record<Locale, Record<string, string>> = {
     create_first_budget_hint: 'Create your first budget to start tracking your spending',
     update_budget: 'Update Budget',
     create_budget: 'Create Budget',
+    copy_last_month: 'Copy last month',
+    budgets_copied_success: 'Copied last month budgets to selected month',
 
     // Profile page (headings only)
     profile_settings_title: 'Profile & Settings',
@@ -460,6 +467,11 @@ const messages: Record<Locale, Record<string, string>> = {
     or_type_hex: 'या हेक्स रंग टाइप करें (उदा., #10b981)',
     update_category: 'श्रेणी अपडेट करें',
     create_category: 'श्रेणी बनाएं',
+    category_name_required: 'श्रेणी नाम आवश्यक है',
+    category_name_min: 'श्रेणी नाम कम से कम 2 अक्षर का होना चाहिए',
+    category_name_max: 'श्रेणी नाम 100 अक्षरों से अधिक नहीं होना चाहिए',
+    category_created: 'श्रेणी सफलतापूर्वक बनाई गई!',
+    failed_save_category: 'श्रेणी सहेजने में विफल। कृपया पुनः प्रयास करें।',
 
     // Budgets page
     budgets_title_page: 'बजट',
@@ -471,6 +483,8 @@ const messages: Record<Locale, Record<string, string>> = {
     create_first_budget_hint: 'पहला बजट बनाकर ट्रैकिंग शुरू करें',
     update_budget: 'बजट अपडेट करें',
     create_budget: 'बजट बनाएं',
+    copy_last_month: 'पिछला महीना कॉपी करें',
+    budgets_copied_success: 'पिछले महीने के बजट चयनित महीने में कॉपी कर दिए गए',
 
     // Profile
     profile_settings_title: 'प्रोफ़ाइल और सेटिंग्स',
@@ -722,6 +736,11 @@ const messages: Record<Locale, Record<string, string>> = {
     or_type_hex: 'किंवा हेक्स रंग टाइप करा (उदा., #10b981)',
     update_category: 'श्रेणी अपडेट करा',
     create_category: 'श्रेणी तयार करा',
+    category_name_required: 'श्रेणी नाव आवश्यक आहे',
+    category_name_min: 'श्रेणी नाव किमान 2 अक्षरे असावे',
+    category_name_max: 'श्रेणी नाव 100 अक्षरांपेक्षा जास्त नसावे',
+    category_created: 'श्रेणी यशस्वीरित्या तयार झाली!',
+    failed_save_category: 'श्रेणी जतन करण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.',
 
     // Budgets page
     budgets_title_page: 'अंदाजपत्रके',
@@ -733,6 +752,8 @@ const messages: Record<Locale, Record<string, string>> = {
     create_first_budget_hint: 'पहिले अंदाजपत्रक तयार करून ट्रॅकिंग सुरू करा',
     update_budget: 'अंदाजपत्रक अपडेट करा',
     create_budget: 'अंदाजपत्रक तयार करा',
+    copy_last_month: 'मागील महिना कॉपी करा',
+    budgets_copied_success: 'मागील महिन्याची अंदाजपत्रके निवडलेल्या महिन्यात कॉपी केली',
 
     // Profile
     profile_settings_title: 'प्रोफाइल आणि सेटिंग्स',

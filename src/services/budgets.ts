@@ -52,8 +52,9 @@ export const budgetService = {
   /**
    * Create a new budget
    */
-  async create(data: CreateBudgetDto): Promise<Budget> {
-    return await apiRequest<Budget>('/budgets', {
+  async create(data: CreateBudgetDto, month?: string): Promise<Budget> {
+    const qs = month ? `?month=${encodeURIComponent(month)}` : ''
+    return await apiRequest<Budget>(`/budgets${qs}`, {
       method: 'POST',
       body: data,
     });
@@ -62,8 +63,9 @@ export const budgetService = {
   /**
    * Update an existing budget
    */
-  async update(id: string, data: UpdateBudgetDto): Promise<Budget> {
-    return await apiRequest<Budget>(`/budgets/${id}`, {
+  async update(id: string, data: UpdateBudgetDto, month?: string): Promise<Budget> {
+    const qs = month ? `?month=${encodeURIComponent(month)}` : ''
+    return await apiRequest<Budget>(`/budgets/${id}${qs}`, {
       method: 'PATCH',
       body: data,
     });

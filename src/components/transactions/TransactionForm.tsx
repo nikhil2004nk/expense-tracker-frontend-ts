@@ -5,12 +5,16 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { uploadReceipt } from '../../services/transactions'
 import { getApiBaseUrl } from '../../services/api-client'
 import { useCurrency } from '../../contexts/CurrencyContext'
-import { fetchCategories, type Category } from '../../services/categories'
+import { fetchCategories, createCategory, type Category } from '../../services/categories'
 import { useToast } from '../ToastProvider'
-import { Loader } from '../common'
+import { Loader, Modal } from '../common'
 import { useI18n } from '../../contexts/I18nContext'
 import { useSettings } from '../../contexts/SettingsContext'
 import { PlusIcon, ChevronDownIcon, ArrowUpTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
+
+// Predefined emoji and color options for inline category creation
+const EMOJI_OPTIONS = ['🛒', '🍕', '🚗', '🎬', '💡', '🏥', '🛍️', '✈️', '🏠', '📱', '⚽', '🎓', '💰', '🎨', '🍔', '☕', '🎮', '📚', '💼', '🏋️']
+const COLOR_OPTIONS = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1']
 
 // Date helpers (use local timezone, not UTC ISO, to avoid off-by-one issues)
 function formatLocalISODate(d: Date) {
@@ -187,6 +191,47 @@ export default function TransactionForm({
     return localized || cat?.name || t('no_category_option')
   }, [locale, t])
 
+  // Inline Add Category modal state
+  const [isCatModalOpen, setIsCatModalOpen] = useState(false)
+  const [creatingCat, setCreatingCat] = useState(false)
+  const [newCat, setNewCat] = useState<{ name: string; icon: string; color: string }>({ name: '', icon: '', color: '' })
+  const [newCatErrors, setNewCatErrors] = useState<{ name?: string }>({})
+
+  const resetNewCatForm = () => {
+    setNewCat({ name: '', icon: '', color: '' })
+    setNewCatErrors({})
+  }
+
+  const validateNewCat = () => {
+    const errs: { name?: string } = {}
+    if (!newCat.name.trim()) errs.name = t('category_name_required') || 'Category name is required'
+    else if (newCat.name.trim().length < 2) errs.name = t('category_name_min') || 'Category name must be at least 2 characters'
+    else if (newCat.name.trim().length > 100) errs.name = t('category_name_max') || 'Category name must not exceed 100 characters'
+    setNewCatErrors(errs)
+    return Object.keys(errs).length === 0
+  }
+
+  const handleCreateCategory = async () => {
+    if (!validateNewCat()) return
+    try {
+      setCreatingCat(true)
+      const created = await createCategory({
+        name: newCat.name.trim(),
+        icon: newCat.icon || undefined,
+        color: newCat.color || undefined,
+      })
+      await loadCategories()
+      setValue('categoryId', created.id)
+      setIsCatModalOpen(false)
+      resetNewCatForm()
+      show(t('category_created') || 'Category created', { type: 'success' })
+    } catch (e: any) {
+      show(e?.message || t('failed_save_category') || 'Failed to save category', { type: 'error' })
+    } finally {
+      setCreatingCat(false)
+    }
+  }
+
   // Close category dropdown on outside click or Escape key
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -206,6 +251,18 @@ export default function TransactionForm({
       document.removeEventListener('keydown', onKey)
     }
   }, [catOpen])
+
+  // Refresh categories when the window regains focus (e.g., after creating a category in a new tab)
+  useEffect(() => {
+    const onFocus = () => {
+      setLoadingCategories(true)
+      void loadCategories()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [loadCategories])
 
   return (
     <form onSubmit={handleSubmit(onLocalSubmit)} className="space-y-4 sm:space-y-6">
@@ -242,15 +299,14 @@ export default function TransactionForm({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('category_label')}
             </label>
-            <a
-              href="/#/categories"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => { resetNewCatForm(); setIsCatModalOpen(true) }}
               className="text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium inline-flex items-center gap-1"
             >
               <PlusIcon className="h-3 w-3" />
               {t('create_new')}
-            </a>
+            </button>
           </div>
 
           {/* Hidden native select to keep form semantics */}
@@ -486,6 +542,101 @@ export default function TransactionForm({
           {submitting ? t('saving') : (defaultValues ? t('update_transaction') : t('add_transaction'))}
         </button>
       </div>
+      <Modal
+        isOpen={isCatModalOpen}
+        onClose={() => { setIsCatModalOpen(false); resetNewCatForm() }}
+        title={t('add_new_category')}
+        size="sm"
+      >
+        <div className="space-y-5">
+          <div>
+            <label htmlFor="inlineCategoryName" className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('category_name_label')}</label>
+            <input
+              id="inlineCategoryName"
+              type="text"
+              value={newCat.name}
+              onChange={(e) => setNewCat((p) => ({ ...p, name: e.target.value }))}
+              className={`block w-full rounded-lg border px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-white ${newCatErrors.name ? 'border-red-300 dark:border-red-500/50 focus:ring-red-500 focus:border-red-500 bg-red-50/50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500'}`}
+              placeholder={t('category_name_placeholder')}
+              maxLength={100}
+            />
+            {newCatErrors.name && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{newCatErrors.name}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('icon_optional')}</label>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {EMOJI_OPTIONS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => setNewCat((p) => ({ ...p, icon: emoji }))}
+                    className={`w-10 h-10 rounded-lg text-xl flex items-center justify-center transition-all ${newCat.icon === emoji ? 'bg-emerald-100 dark:bg-emerald-900/30 ring-2 ring-emerald-500 dark:ring-emerald-400' : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                    title={emoji}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                value={newCat.icon}
+                onChange={(e) => setNewCat((p) => ({ ...p, icon: e.target.value }))}
+                className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors dark:bg-gray-700 dark:text-white"
+                placeholder={t('or_type_emoji')}
+                maxLength={10}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('color_optional')}</label>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {COLOR_OPTIONS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setNewCat((p) => ({ ...p, color }))}
+                    className={`w-10 h-10 rounded-lg transition-all ${newCat.color === color ? 'ring-2 ring-offset-2 ring-emerald-500 dark:ring-emerald-400 dark:ring-offset-gray-800' : 'hover:scale-110'}`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                  />
+                ))}
+              </div>
+              <input
+                type="text"
+                value={newCat.color}
+                onChange={(e) => setNewCat((p) => ({ ...p, color: e.target.value }))}
+                className="block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500 transition-colors dark:bg-gray-700 dark:text-white"
+                placeholder={t('or_type_hex')}
+                maxLength={20}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={() => { setIsCatModalOpen(false); resetNewCatForm() }}
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
+            >
+              {t('cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={handleCreateCategory}
+              disabled={creatingCat}
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-emerald-600 dark:bg-emerald-600 rounded-md shadow-sm hover:bg-emerald-700 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {creatingCat ? t('saving') : t('create_category')}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </form>
   )
 }

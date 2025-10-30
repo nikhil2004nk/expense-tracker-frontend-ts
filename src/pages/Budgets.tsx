@@ -3,6 +3,7 @@ import { Modal } from '../components/common'
 import { useToast } from '../components/ToastProvider'
 import { useCurrency } from '../contexts/CurrencyContext'
 import { budgetService } from '../services/budgets'
+import { fetchTransactions, type Transaction } from '../services/transactions'
 import { fetchCategories, type Category } from '../services/categories'
 import type { Budget } from '../services/budgets'
 import { useI18n } from '../contexts/I18nContext'
@@ -32,6 +33,7 @@ export default function Budgets() {
   const [loading, setLoading] = useState(false)
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isCopying, setIsCopying] = useState(false)
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     // Try to read from hash query param first for persistence
     const hash = typeof window !== 'undefined' ? window.location.hash : ''
@@ -54,6 +56,39 @@ export default function Budgets() {
       return d.toLocaleString(undefined, { month: 'long', year: 'numeric' })
     }
   }, [selectedMonth, locale])
+
+  const getPrevMonthKey = (mm: string) => {
+    const [yStr, mStr] = mm.split('-')
+    let y = parseInt(yStr)
+    let m = parseInt(mStr)
+    m = m - 1
+    if (m === 0) { m = 12; y = y - 1 }
+    return `${y}-${String(m).padStart(2, '0')}`
+  }
+
+  const handleCopyLastMonth = async () => {
+    if (isCopying) return
+    setIsCopying(true)
+    try {
+      const prev = getPrevMonthKey(selectedMonth)
+      const prevBudgets = await budgetService.getAll(prev)
+      if (!prevBudgets || prevBudgets.length === 0) {
+        show(t('no_budgets_yet') || 'No budgets found for previous month', { type: 'warning' })
+        return
+      }
+      // Create/update budgets for selected month
+      await Promise.allSettled(
+        prevBudgets.map(b => budgetService.create({ categoryId: b.categoryId, amount: b.budget }, selectedMonth))
+      )
+      await loadBudgets()
+      show(t('budgets_copied_success') || 'Copied last month budgets to selected month', { type: 'success' })
+    } catch (e: any) {
+      console.error('Failed to copy last month budgets:', e)
+      show(e?.message || 'Failed to copy last month budgets', { type: 'error' })
+    } finally {
+      setIsCopying(false)
+    }
+  }
 
   const { symbol, fcs } = useCurrency()
   const threshold = settings.budgetAlertThreshold
@@ -102,8 +137,39 @@ export default function Budgets() {
   const loadBudgets = async () => {
     try {
       setLoading(true)
-      const budgets = await budgetService.getAll(selectedMonth)
-      setBudgetData(budgets)
+      const [budgets, txns] = await Promise.all([
+        budgetService.getAll(selectedMonth),
+        fetchTransactions({ month: selectedMonth }).catch(() => [] as Transaction[]),
+      ])
+
+      // Build spent per category from transactions for this month
+      const spentByCat = new Map<string, number>()
+      txns.forEach(t => {
+        if (!t.categoryId) return
+        const prev = spentByCat.get(t.categoryId) || 0
+        spentByCat.set(t.categoryId, prev + Math.abs(t.amount))
+      })
+
+      // Existing budget category IDs
+      const existingCatIds = new Set(budgets.map(b => b.categoryId))
+
+      // Create placeholders for categories present in transactions but missing in budgets
+      const placeholders = Array.from(spentByCat.entries())
+        .filter(([catId]) => !!catId && !existingCatIds.has(catId))
+        .map(([catId, spent]) => {
+          const txnCat = txns.find(t => t.categoryId === catId)?.category || null
+          return {
+            id: `placeholder-${catId}`,
+            categoryId: catId,
+            category: txnCat as any,
+            budget: 0,
+            spent: spent,
+            createdAt: '',
+            updatedAt: '',
+          } as any
+        })
+
+      setBudgetData([...budgets, ...placeholders])
     } catch (error: any) {
       console.error('Failed to load budgets:', error)
       const message = error.message || 'Failed to load budgets'
@@ -162,16 +228,25 @@ export default function Budgets() {
       const categoryObj = categories.find(c => c.id === formData.categoryId)
       const categoryName = getCategoryName(categoryObj) || 'Budget'
       if (editingBudget) {
-        await budgetService.update(editingBudget.id, {
-          categoryId: formData.categoryId.trim(),
-          amount: parseFloat(formData.amount),
-        })
-        show(`Budget "${categoryName}" updated successfully!`, { type: 'success' })
+        const isPlaceholder = (editingBudget.id || '').startsWith('placeholder-')
+        if (isPlaceholder) {
+          await budgetService.create({
+            categoryId: formData.categoryId.trim(),
+            amount: parseFloat(formData.amount),
+          }, selectedMonth)
+          show(`Budget "${categoryName}" created successfully!`, { type: 'success' })
+        } else {
+          await budgetService.update(editingBudget.id, {
+            categoryId: formData.categoryId.trim(),
+            amount: parseFloat(formData.amount),
+          }, selectedMonth)
+          show(`Budget "${categoryName}" updated successfully!`, { type: 'success' })
+        }
       } else {
         await budgetService.create({
           categoryId: formData.categoryId.trim(),
           amount: parseFloat(formData.amount),
-        })
+        }, selectedMonth)
         show(`Budget "${categoryName}" created successfully!`, { type: 'success' })
       }
       await loadBudgets() // Reload budgets from server
@@ -230,6 +305,15 @@ export default function Budgets() {
           >
             <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+          </button>
+          <button
+            onClick={handleCopyLastMonth}
+            disabled={loading || isCopying}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={t('copy_last_month') || 'Copy last month'}
+          >
+            <RectangleStackIcon className={`h-4 w-4 ${isCopying ? 'animate-pulse' : ''}`} />
+            <span className="hidden sm:inline">{t('copy_last_month') || 'Copy last month'}</span>
           </button>
           <button
             onClick={handleOpenModal}
@@ -357,9 +441,11 @@ export default function Budgets() {
                           {t('create_budget')}
                         </span>
                       </button>
-                      <button onClick={() => handleDeleteBudget(budget)} disabled={loading} className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title={t('delete')}>
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
+                      {!(budget.id || '').startsWith('placeholder-') && (
+                        <button onClick={() => handleDeleteBudget(budget)} disabled={loading} className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" title={t('delete')}>
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </>
                 ) : (
