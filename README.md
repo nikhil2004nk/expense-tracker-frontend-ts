@@ -1,3 +1,214 @@
+# 💰 Expense Tracker Web App
+
+<div align="center">
+
+![Expense Tracker](https://img.shields.io/badge/Expense-Tracker-emerald?style=for-the-badge)
+![React](https://img.shields.io/badge/React-19.1-61DAFB?style=for-the-badge&logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-7.1-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen?style=for-the-badge)
+
+A modern, feature-rich expense tracking application built with React, TypeScript, and TailwindCSS. Track expenses, manage budgets, visualize spending patterns, and control your finances with an intuitive, responsive interface.
+
+## 🚀 [Live Demo](https://nikhil2004nk.github.io/expense-tracker-frontend-ts/)
+
+[Features](#-features) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Usage](#-usage) • [Deployment](#-deployment) • [Project Structure](#-project-structure) • [Contributing](#-contributing) • [Troubleshooting](#-troubleshooting) • [License](#-license) • [Author](#-author) • [Support](#-support)
+
+</div>
+
+---
+
+## ✨ Features
+
+### 📊 Dashboard Analytics
+- Real-time overview of spending
+- Interactive charts for income vs. expenses
+- Category-wise distribution and summaries
+
+### 💸 Transaction Management
+- Add transactions with amount, category, date, notes
+- Upload receipt images or PDFs
+- Filter by category and sort by date/amount
+- Edit and delete with confirmation
+
+### 🎯 Budget Planning
+- Per-category budgets and progress
+- Alerts when approaching or exceeding limits
+- Quick edit/delete and currency support
+
+### 👤 Profile & Settings
+- Profile updates and preferences
+- Theme customization (Light/Dark)
+- Currency and regional settings
+
+### 🎨 Design & UX
+- Fully responsive (mobile, tablet, desktop)
+- Smooth animations and accessible UI
+- Toast notifications for actions
+
+### 🔒 Authentication & Security
+- Secure login and registration
+- Protected routes
+- Client-side validation with Zod
+
+---
+
+## 🛠 Tech Stack
+
+### Core
+- React 19.1, TypeScript
+- React Router 7
+- Vite 7
+
+### UI & Styling
+- TailwindCSS 3.4
+- Reusable components and responsive design
+
+### Forms & Validation
+- React Hook Form 7
+- Zod 4 with `@hookform/resolvers`
+
+### Data Visualization
+- Recharts 3
+
+### Quality & Tooling
+- ESLint 9, Prettier, PostCSS, Autoprefixer
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- Backend API running (see `expense-tracker-service`)
+
+### Installation
+
+```bash
+npm install
+```
+
+### Environment
+
+Create `.env.local` in the project root:
+
+```bash
+VITE_API_URL=http://localhost:3000
+```
+
+### Start Development Server
+
+```bash
+npm run dev
+```
+
+Open http://localhost:5173
+
+### Build for Production
+
+```bash
+npm run build
+```
+
+### Preview Production Build
+
+```bash
+npm run preview
+```
+
+---
+
+## 📖 Usage
+
+### First Time Setup
+1. Register an account and log in
+2. You will be redirected to the dashboard
+
+### Add Transactions
+1. Go to Transactions
+2. Fill in amount, category, date, optional notes/receipt
+3. Click Add Transaction
+
+### Budgets
+1. Open Budgets
+2. Add per-category budgets
+3. Monitor progress and alerts
+
+### Settings
+1. Adjust theme, currency, and regional preferences
+2. Save changes
+
+---
+
+## 🚀 Deployment
+
+- Deployed on GitHub Pages
+- Ensure your CI workflow builds the project and publishes the `dist` folder
+- Set `VITE_API_URL` for production to point to your backend
+
+Live URL: https://nikhil2004nk.github.io/expense-tracker-frontend-ts/
+
+---
+
+## 📁 Project Structure
+
+```bash
+src/
+├── components/          # Reusable UI components
+│   ├── common/          # Shared components
+│   └── transactions/    # Transaction-specific components
+├── contexts/            # React contexts
+├── hooks/               # Custom hooks
+├── pages/               # Page components (Dashboard, Transactions, Budgets, Profile, Settings)
+├── services/            # API integration layer (api-client, auth, transactions)
+├── utils/               # Utility functions
+├── App.tsx              # Main app component
+└── main.tsx             # App entry point
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Open a pull request
+
+---
+
+## 🔧 Troubleshooting
+
+- CORS errors: ensure backend CORS allows your frontend origin and credentials
+- Auth issues: verify cookies are enabled and `VITE_API_URL` is correct
+- Build failures: reinstall dependencies and run a clean build
+
+---
+
+## 📝 License
+
+MIT
+
+---
+
+## 👨‍💻 Author
+
+**Nikhil Kushwaha**
+
+- GitHub: https://github.com/nikhil2004nk
+- LinkedIn: https://www.linkedin.com/in/nikhil-kushwaha12
+- Email: Nikdocuments12@gmail.com
+
+---
+
+## 📞 Support
+
+- Open an issue or start a discussion
+- For help, reach out via email
+
+---
+
 # Expense Tracker Frontend
 
 [Live Demo](https://nikhil2004nk.github.io/expense-tracker-frontend-ts/)
