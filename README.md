@@ -1,5 +1,7 @@
 # Expense Tracker Frontend
 
+[Live Demo](https://nikhil2004nk.github.io/expense-tracker-frontend-ts/)
+
 A modern, fully-featured expense tracking application built with React, TypeScript, and Tailwind CSS. This frontend integrates seamlessly with the NestJS backend API for complete expense management.
 
 ## Features
@@ -16,7 +18,7 @@ A modern, fully-featured expense tracking application built with React, TypeScri
 
 ## Tech Stack
 
-- **React 18** with TypeScript
+- **React 19** with TypeScript
 - **Vite** for fast development and building
 - **Tailwind CSS** for styling
 - **React Hook Form** with Zod validation
@@ -44,8 +46,6 @@ Create a `.env.local` file in the root directory:
 ```bash
 VITE_API_URL=http://localhost:3000
 ```
-
-See `env.example.txt` for reference.
 
 ### 3. Start Development Server
 
