@@ -35,15 +35,26 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
 
   const debouncedCategoryFilter = useDebounce(categoryFilter, 300)
   const locale = settings.language as 'en' | 'hi' | 'mr'
-  const getCategoryName = useCallback((cat?: any) => {
+  const getCategoryName = useCallback((cat?: { 
+    name?: string; 
+    name_en?: string; 
+    name_hi?: string; 
+    name_mr?: string;
+    [key: string]: unknown;
+  } | null) => {
     if (!cat) return t('uncategorized')
-    const localized = cat[`name_${locale}`]
-    if (localized) return localized
+    const localizedKey = `name_${locale}`
+    const localized = cat[localizedKey]
+    if (typeof localized === 'string') return localized
+    
     const match = categories.find(c => {
       const names = [c.name, c.name_en, c.name_hi, c.name_mr].filter(Boolean) as string[]
-      return names.includes(cat.name)
+      return names.includes(cat.name as string)
     })
-    if (match) return (match as any)[`name_${locale}`] || match.name
+    if (match) {
+      const matchLocalized = match[localizedKey]
+      return (typeof matchLocalized === 'string' ? matchLocalized : match.name) || t('uncategorized')
+    }
     return cat.name || t('uncategorized')
   }, [locale, t, categories])
 
@@ -189,7 +200,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
           </div>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             className="w-full sm:w-auto rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="dateDesc">{t('date_desc')}</option>

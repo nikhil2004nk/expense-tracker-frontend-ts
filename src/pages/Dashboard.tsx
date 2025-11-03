@@ -20,7 +20,7 @@ import { useSettings } from '../contexts/SettingsContext'
 import { formatDate } from '../utils/date'
 import { useI18n } from '../contexts/I18nContext'
 import { fetchCategories, type Category } from '../services/categories'
-import { CHART_COLORS } from '../config/constants'
+import { CHART_COLORS, TIMING } from '../config/constants'
 import {
   ArrowPathIcon,
   XCircleIcon,
@@ -111,7 +111,7 @@ export default function Dashboard() {
     refreshTimerRef.current = setTimeout(() => {
       setIsRefreshing(false)
       refreshTimerRef.current = null
-    }, 2000)
+    }, TIMING.REFRESH_DURATION)
   }
 
   // Cleanup refresh timer on unmount
@@ -204,19 +204,39 @@ export default function Dashboard() {
 
   const { totalIncome, totalExpense, balance, transactionCount, categoryCount, categoryData, recentTransactionsMonth, budgets, selectedMonthKey, compareMonthKey, selectedTotalExpense, selectedTotalBudget, compareTotalExpense, compareTotalBudget, pendingSetup } = dashboardData
 
-  const getCatName = (cat?: any) => {
+  // Calculate budgets with amount 0 (auto-created but not configured)
+  const budgetsNotConfigured = budgets.filter(b => b.budget === 0)
+  const totalPendingSetup = (pendingSetup?.length ?? 0) + budgetsNotConfigured.length
+
+  const getCatName = (cat?: { 
+    name?: string; 
+    name_en?: string; 
+    name_hi?: string; 
+    name_mr?: string;
+    [key: string]: unknown;
+  } | null) => {
     if (!cat) return t('uncategorized')
-    const localized = cat?.[`name_${locale}`]
-    if (localized) return localized
+    const localizedKey = `name_${locale}`
+    const localized = cat[localizedKey]
+    if (typeof localized === 'string') return localized
+    
     // Try mapping via categories list if embedded cat lacks localized fields
     const match = categories.find(c => {
       const names = [c.name, c.name_en, c.name_hi, c.name_mr].filter(Boolean) as string[]
-      return names.includes(cat.name)
+      return names.includes(cat.name as string)
     })
-    if (match) return (match as any)[`name_${locale}`] || match.name
+    if (match) {
+      const matchLocalized = match[localizedKey]
+      return (typeof matchLocalized === 'string' ? matchLocalized : match.name) || t('uncategorized')
+    }
     return cat?.name || t('uncategorized')
   }
-  const matchesName = (cat: any, name: string) => {
+  const matchesName = (cat: { 
+    name?: string; 
+    name_en?: string; 
+    name_hi?: string; 
+    name_mr?: string;
+  } | null | undefined, name: string) => {
     if (!cat) return false
     const names = [cat.name, cat.name_en, cat.name_hi, cat.name_mr].filter(Boolean)
     return names.includes(name)
@@ -224,7 +244,10 @@ export default function Dashboard() {
 
   const findLocalizedNameByAny = (name: string) => {
     const c = categories.find(cat => [cat.name, cat.name_en, cat.name_hi, cat.name_mr].filter(Boolean).includes(name))
-    return c ? ((c as any)[`name_${locale}`] || c.name) : name
+    if (!c) return name
+    const localizedKey = `name_${locale}`
+    const localized = c[localizedKey]
+    return (typeof localized === 'string' ? localized : c.name) || name
   }
 
   // Safe translation fallback to avoid rendering raw keys when missing
@@ -381,10 +404,24 @@ export default function Dashboard() {
             <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('budgets_title')}</div>
             <RectangleStackIcon className="w-5 h-5 text-purple-500" />
           </div>
-          <div className="mt-1 sm:mt-2 text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{budgets.length}</div>
+          <div className="mt-1 sm:mt-2 text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+            {budgets.filter(b => b.budget > 0).length}
+            {totalPendingSetup > 0 && (
+              <span className="text-amber-600 dark:text-amber-500 text-base ml-2">
+                +{totalPendingSetup}
+              </span>
+            )}
+          </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {(pendingSetup?.length ?? 0) > 0 ? (
-              <span className="text-amber-600 dark:text-amber-400">{pendingSetup.length} {t('pending_setup')}</span>
+            {totalPendingSetup > 0 ? (
+              <div className="flex flex-col gap-0.5">
+                <span className="text-amber-600 dark:text-amber-400 font-medium">
+                  {totalPendingSetup} {t('pending_setup')}
+                </span>
+                <span className="text-[10px]">
+                  {tf('for_this_month', 'for this month')}
+                </span>
+              </div>
             ) : (
               <span>{t('all_configured')}</span>
             )}
@@ -600,12 +637,17 @@ export default function Dashboard() {
       )}
 
       {/* Budgets Pending Setup */}
-      {(pendingSetup?.length ?? 0) > 0 && (
+      {totalPendingSetup > 0 && (
         <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 sm:p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div className="flex items-center gap-2">
               <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-              <h2 className="text-sm sm:text-base font-medium text-amber-900 dark:text-amber-200">{t('budgets_pending_setup')}</h2>
+              <div>
+                <h2 className="text-sm sm:text-base font-medium text-amber-900 dark:text-amber-200">{t('budgets_pending_setup')}</h2>
+                <p className="text-[10px] sm:text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                  {formattedMonth}
+                </p>
+              </div>
             </div>
             <Link 
               to="/budgets" 
@@ -618,6 +660,7 @@ export default function Dashboard() {
             {t('auto_created_hint')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {/* Categories with transactions but no budget entry */}
             {pendingSetup.map((ps) => (
               <div 
                 key={ps.categoryId}
@@ -637,6 +680,29 @@ export default function Dashboard() {
                 </div>
                 <span className="text-xs text-amber-700 dark:text-amber-400 ml-2 flex-shrink-0">
                   {t('spent')}: {fc(ps.spent)}
+                </span>
+              </div>
+            ))}
+            {/* Budgets with amount 0 (auto-created but not configured) */}
+            {budgetsNotConfigured.map((budget) => (
+              <div 
+                key={budget.id}
+                className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800"
+                style={budget.category?.color ? {
+                  borderLeftWidth: '4px',
+                  borderLeftColor: budget.category.color
+                } : undefined}
+              >
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-lg flex-shrink-0">
+                    {budget.category?.icon || '📋'}
+                  </span>
+                  <span className="text-xs sm:text-sm font-medium text-amber-900 dark:text-amber-200 truncate">
+                    {getCatName(budget.category)}
+                  </span>
+                </div>
+                <span className="text-xs text-amber-700 dark:text-amber-400 ml-2 flex-shrink-0">
+                  {t('spent')}: {fc(budget.spent)}
                 </span>
               </div>
             ))}

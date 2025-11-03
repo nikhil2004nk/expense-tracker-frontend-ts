@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { logout, me as fetchMe } from '../services/auth'
+import { logout, me as fetchMe, type User } from '../services/auth'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { useI18n } from '../contexts/I18nContext'
@@ -55,42 +55,55 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
   const [userEmail, setUserEmail] = useState('')
 
   useEffect(() => {
-    let active = true
-    const load = async () => {
+    let mounted = true
+    
+    const loadUserInfo = async () => {
       try {
-        const u = await fetchMe()
-        if (!active) return
-        setUserName((u as any).fullName || '')
-        setUserEmail((u as any).email || '')
-      } catch {
+        const user: User = await fetchMe()
+        if (!mounted) return
+        setUserName(user.fullName || '')
+        setUserEmail(user.email || '')
+      } catch (error) {
+        console.error('[Sidebar] Failed to load user info:', error)
+        // Try loading from localStorage as fallback
         try {
           const raw = localStorage.getItem('userPreferences')
-          if (raw) {
-            const prefs = JSON.parse(raw)
+          if (raw && mounted) {
+            const prefs = JSON.parse(raw) as { name?: string; email?: string }
             setUserName(prefs?.name || '')
             setUserEmail(prefs?.email || '')
           }
-        } catch {}
+        } catch (parseError) {
+          console.error('[Sidebar] Failed to parse user preferences:', parseError)
+        }
       }
     }
-    load()
+    
+    loadUserInfo()
 
-    const onPrefsUpdated = () => {
+    const handlePrefsUpdate = () => {
       try {
         const raw = localStorage.getItem('userPreferences')
         if (!raw) return
-        const prefs = JSON.parse(raw)
+        const prefs = JSON.parse(raw) as { name?: string; email?: string }
         setUserName(prefs?.name || '')
         setUserEmail(prefs?.email || '')
-      } catch {}
+      } catch (error) {
+        console.error('[Sidebar] Failed to handle preferences update:', error)
+      }
     }
-    window.addEventListener('userPreferencesUpdated', onPrefsUpdated as any)
-    return () => { active = false; window.removeEventListener('userPreferencesUpdated', onPrefsUpdated as any) }
+    
+    window.addEventListener('userPreferencesUpdated', handlePrefsUpdate)
+    
+    return () => {
+      mounted = false
+      window.removeEventListener('userPreferencesUpdated', handlePrefsUpdate)
+    }
   }, [])
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
     onClose()
+    await logout()
     navigate('/login')
   }
 

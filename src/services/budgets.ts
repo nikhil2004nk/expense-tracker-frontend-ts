@@ -11,6 +11,7 @@ export interface BudgetCategory {
   name_mr?: string
   icon?: string
   color?: string
+  [key: string]: unknown
 }
 
 export interface Budget {

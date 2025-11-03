@@ -16,6 +16,7 @@ export type Category = {
   color?: string
   createdAt?: string
   updatedAt?: string
+  [key: string]: unknown
 }
 
 /**

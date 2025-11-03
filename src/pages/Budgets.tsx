@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Modal } from '../components/common'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { Modal, ConfirmModal } from '../components/common'
 import { useToast } from '../components/ToastProvider'
 import { useCurrency } from '../contexts/CurrencyContext'
 import { budgetService } from '../services/budgets'
@@ -18,6 +18,7 @@ import {
   ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
 import { useSettings } from '../contexts/SettingsContext'
+import { TIMING } from '../config/constants'
 
 export default function Budgets() {
   const { show } = useToast()
@@ -34,6 +35,11 @@ export default function Budgets() {
   const [loadingCategories, setLoadingCategories] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isCopying, setIsCopying] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; budget: Budget | null }>({ 
+    isOpen: false, 
+    budget: null 
+  })
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     // Try to read from hash query param first for persistence
     const hash = typeof window !== 'undefined' ? window.location.hash : ''
@@ -82,9 +88,10 @@ export default function Budgets() {
       )
       await loadBudgets()
       show(t('budgets_copied_success') || 'Copied last month budgets to selected month', { type: 'success' })
-    } catch (e: any) {
-      console.error('Failed to copy last month budgets:', e)
-      show(e?.message || 'Failed to copy last month budgets', { type: 'error' })
+    } catch (error: unknown) {
+      console.error('[Budgets] Failed to copy last month budgets:', error)
+      const message = error instanceof Error ? error.message : 'Failed to copy last month budgets'
+      show(message, { type: 'error' })
     } finally {
       setIsCopying(false)
     }
@@ -120,18 +127,26 @@ export default function Budgets() {
     try {
       const cats = await fetchCategories()
       setCategories(cats)
-    } catch (error: any) {
-      console.error('Failed to load categories:', error)
-      show(error.message || 'Failed to load categories', { type: 'error' })
+    } catch (error: unknown) {
+      console.error('[Budgets] Failed to load categories:', error)
+      const message = error instanceof Error ? error.message : 'Failed to load categories'
+      show(message, { type: 'error' })
     } finally {
       setLoadingCategories(false)
     }
   }
 
-  const getCategoryName = (cat?: any) => {
+  const getCategoryName = (cat?: { 
+    name?: string; 
+    name_en?: string; 
+    name_hi?: string; 
+    name_mr?: string;
+    [key: string]: unknown;
+  } | null) => {
     if (!cat) return t('uncategorized')
-    const localized = cat?.[`name_${locale}`]
-    return localized || cat?.name || t('uncategorized')
+    const localizedKey = `name_${locale}`
+    const localized = cat[localizedKey]
+    return (typeof localized === 'string' ? localized : cat.name) || t('uncategorized')
   }
 
   const loadBudgets = async () => {
@@ -161,18 +176,18 @@ export default function Budgets() {
           return {
             id: `placeholder-${catId}`,
             categoryId: catId,
-            category: txnCat as any,
+            category: txnCat,
             budget: 0,
             spent: spent,
             createdAt: '',
             updatedAt: '',
-          } as any
+          } as Budget
         })
 
       setBudgetData([...budgets, ...placeholders])
-    } catch (error: any) {
-      console.error('Failed to load budgets:', error)
-      const message = error.message || 'Failed to load budgets'
+    } catch (error: unknown) {
+      console.error('[Budgets] Failed to load budgets:', error)
+      const message = error instanceof Error ? error.message : 'Failed to load budgets'
       show(message, { type: 'error' })
     } finally {
       setLoading(false)
@@ -182,10 +197,28 @@ export default function Budgets() {
   const handleRefresh = () => {
     if (isRefreshing) return
     setIsRefreshing(true)
+    
+    // Clear any existing timer
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current)
+    }
+    
     Promise.resolve(loadBudgets()).finally(() => {
-      setTimeout(() => setIsRefreshing(false), 2000)
+      refreshTimerRef.current = setTimeout(() => {
+        setIsRefreshing(false)
+        refreshTimerRef.current = null
+      }, TIMING.REFRESH_DURATION)
     })
   }
+  
+  // Cleanup refresh timer on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current)
+      }
+    }
+  }, [])
 
   const getProgressPercentage = (spent: number, budget: number) => Math.min((spent / budget) * 100, 100)
 
@@ -214,7 +247,7 @@ export default function Budgets() {
     setIsModalOpen(true)
   }
 
-  const handleEditBudget = (budget: any) => {
+  const handleEditBudget = (budget: Budget) => {
     setEditingBudget(budget)
     setFormData({ categoryId: budget.categoryId, amount: budget.budget.toString() })
     setFormErrors({})
@@ -252,31 +285,37 @@ export default function Budgets() {
       await loadBudgets() // Reload budgets from server
       setIsModalOpen(false)
       resetForm()
-    } catch (error: any) {
-      console.error('Failed to save budget:', error)
-      const message = error.message || 'Failed to save budget. Please try again.'
+    } catch (error: unknown) {
+      console.error('[Budgets] Failed to save budget:', error)
+      const message = error instanceof Error ? error.message : 'Failed to save budget. Please try again.'
       show(message, { type: 'error' })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDeleteBudget = async (budget: Budget) => {
+  const handleDeleteBudget = (budget: Budget) => {
+    setDeleteConfirm({ isOpen: true, budget })
+  }
+
+  const confirmDelete = async () => {
+    const budget = deleteConfirm.budget
+    if (!budget) return
+
     const categoryName = getCategoryName(budget.category) || 'this budget'
-    const confirmed = window.confirm(`Are you sure you want to delete the "${categoryName}" budget?\n\nThis action cannot be undone.`)
-    if (confirmed) {
-      try {
-        setLoading(true)
-        await budgetService.delete(budget.id)
-        await loadBudgets() // Reload budgets from server
-        show(`Budget "${categoryName}" deleted successfully!`, { type: 'success' })
-      } catch (error: any) {
-        console.error('Failed to delete budget:', error)
-        const message = error.message || 'Failed to delete budget. Please try again.'
-        show(message, { type: 'error' })
-      } finally {
-        setLoading(false)
-      }
+    
+    try {
+      setLoading(true)
+      await budgetService.delete(budget.id)
+      await loadBudgets() // Reload budgets from server
+      show(`Budget "${categoryName}" deleted successfully!`, { type: 'success' })
+    } catch (error: unknown) {
+      console.error('[Budgets] Failed to delete budget:', error)
+      const message = error instanceof Error ? error.message : 'Failed to delete budget. Please try again.'
+      show(message, { type: 'error' })
+    } finally {
+      setLoading(false)
+      setDeleteConfirm({ isOpen: false, budget: null })
     }
   }
 
@@ -595,6 +634,21 @@ export default function Budgets() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ isOpen: false, budget: null })}
+        onConfirm={confirmDelete}
+        title={t('delete_budget_title') || 'Delete Budget'}
+        message={
+          deleteConfirm.budget
+            ? `${t('delete_budget_msg') || 'Are you sure you want to delete the budget for'} "${getCategoryName(deleteConfirm.budget.category)}"?\n\n${t('delete_budget_warning') || 'This action cannot be undone.'}`
+            : ''
+        }
+        confirmText={t('delete')}
+        cancelText={t('cancel')}
+        type="danger"
+      />
     </div>
   )
 }

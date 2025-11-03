@@ -1,27 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Modal } from '../components/common'
+import { Modal, ConfirmModal } from '../components/common'
 import { useToast } from '../components/ToastProvider'
 import { fetchCategories, createCategory, updateCategory, deleteCategory, type Category } from '../services/categories'
 import { useI18n } from '../contexts/I18nContext'
 import { useSettings } from '../contexts/SettingsContext'
 import { ArrowPathIcon, PlusIcon, TagIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'
-
-// Predefined emoji icons for quick selection
-const EMOJI_OPTIONS = ['🛒', '🍕', '🚗', '🎬', '💡', '🏥', '🛍️', '✈️', '🏠', '📱', '⚽', '🎓', '💰', '🎨', '🍔', '☕', '🎮', '📚', '💼', '🏋️']
-
-// Predefined color options
-const COLOR_OPTIONS = [
-  '#10b981', // emerald
-  '#f59e0b', // amber
-  '#3b82f6', // blue
-  '#8b5cf6', // violet
-  '#ef4444', // red
-  '#ec4899', // pink
-  '#06b6d4', // cyan
-  '#84cc16', // lime
-  '#f97316', // orange
-  '#6366f1', // indigo
-]
+import { CATEGORY_EMOJIS, CATEGORY_COLORS, VALIDATION, TIMING } from '../config/constants'
 
 export default function Categories() {
   const { show } = useToast()
@@ -35,18 +19,29 @@ export default function Categories() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; category: Category | null }>({ 
+    isOpen: false, 
+    category: null 
+  })
 
-  const getCategoryName = (cat?: Partial<Category>) => {
+  const getCategoryName = (cat?: { 
+    name?: string; 
+    name_en?: string; 
+    name_hi?: string; 
+    name_mr?: string;
+    [key: string]: unknown;
+  } | null) => {
     if (!cat) return t('uncategorized')
-    const localized = (cat as any)?.[`name_${locale}`]
-    return (localized as string) || cat.name || t('uncategorized')
+    const localizedKey = `name_${locale}`
+    const localized = cat[localizedKey]
+    return (typeof localized === 'string' ? localized : cat.name) || t('uncategorized')
   }
 
   const handleRefresh = () => {
     if (isRefreshing) return
     setIsRefreshing(true)
     Promise.resolve(loadCategories()).finally(() => {
-      setTimeout(() => setIsRefreshing(false), 2000)
+      setTimeout(() => setIsRefreshing(false), TIMING.REFRESH_DURATION)
     })
   }
 
@@ -60,9 +55,10 @@ export default function Categories() {
       setLoading(true)
       const cats = await fetchCategories()
       setCategories(cats)
-    } catch (error: any) {
-      console.error('Failed to load categories:', error)
-      show(error.message || 'Failed to load categories', { type: 'error' })
+    } catch (error: unknown) {
+      console.error('[Categories] Failed to load categories:', error)
+      const message = error instanceof Error ? error.message : 'Failed to load categories'
+      show(message, { type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -72,10 +68,10 @@ export default function Categories() {
     const errors: { name?: string; icon?: string; color?: string } = {}
     if (!formData.name?.trim()) {
       errors.name = 'Category name is required'
-    } else if (formData.name.trim().length < 2) {
-      errors.name = 'Category name must be at least 2 characters'
-    } else if (formData.name.trim().length > 100) {
-      errors.name = 'Category name must not exceed 100 characters'
+    } else if (formData.name.trim().length < VALIDATION.CATEGORY_NAME.MIN_LENGTH) {
+      errors.name = `Category name must be at least ${VALIDATION.CATEGORY_NAME.MIN_LENGTH} characters`
+    } else if (formData.name.trim().length > VALIDATION.CATEGORY_NAME.MAX_LENGTH) {
+      errors.name = `Category name must not exceed ${VALIDATION.CATEGORY_NAME.MAX_LENGTH} characters`
     }
     setFormErrors(errors)
     return Object.keys(errors).length === 0
@@ -125,30 +121,35 @@ export default function Categories() {
       await loadCategories()
       setIsModalOpen(false)
       resetForm()
-    } catch (error: any) {
-      console.error('Failed to save category:', error)
-      const message = error.message || 'Failed to save category. Please try again.'
+    } catch (error: unknown) {
+      console.error('[Categories] Failed to save category:', error)
+      const message = error instanceof Error ? error.message : 'Failed to save category. Please try again.'
       show(message, { type: 'error' })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDeleteCategory = async (category: Category) => {
-    const confirmed = window.confirm(`Are you sure you want to delete the "${category.name}" category?\n\nThis action cannot be undone. Any transactions or budgets using this category will become uncategorized.`)
-    if (confirmed) {
-      try {
-        setLoading(true)
-        await deleteCategory(category.id)
-        await loadCategories()
-        show(`Category "${category.name}" deleted successfully!`, { type: 'success' })
-      } catch (error: any) {
-        console.error('Failed to delete category:', error)
-        const message = error.message || 'Failed to delete category. Please try again.'
-        show(message, { type: 'error' })
-      } finally {
-        setLoading(false)
-      }
+  const handleDeleteCategory = (category: Category) => {
+    setDeleteConfirm({ isOpen: true, category })
+  }
+
+  const confirmDelete = async () => {
+    const category = deleteConfirm.category
+    if (!category) return
+
+    try {
+      setLoading(true)
+      await deleteCategory(category.id)
+      await loadCategories()
+      show(`Category "${category.name}" deleted successfully!`, { type: 'success' })
+    } catch (error: unknown) {
+      console.error('[Categories] Failed to delete category:', error)
+      const message = error instanceof Error ? error.message : 'Failed to delete category. Please try again.'
+      show(message, { type: 'error' })
+    } finally {
+      setLoading(false)
+      setDeleteConfirm({ isOpen: false, category: null })
     }
   }
 
@@ -286,7 +287,7 @@ export default function Categories() {
               onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               className={`block w-full rounded-lg border px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-white ${formErrors.name ? 'border-red-300 dark:border-red-500/50 focus:ring-red-500 focus:border-red-500 bg-red-50/50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500'}`}
               placeholder={t('category_name_placeholder')}
-              maxLength={100}
+              maxLength={VALIDATION.CATEGORY_NAME.MAX_LENGTH}
             />
             {formErrors.name && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
@@ -300,7 +301,7 @@ export default function Categories() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('icon_optional')}</label>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {EMOJI_OPTIONS.map((emoji) => (
+                {CATEGORY_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
                     type="button"
@@ -330,7 +331,7 @@ export default function Categories() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('color_optional')}</label>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {COLOR_OPTIONS.map((color) => (
+                {CATEGORY_COLORS.map((color) => (
                   <button
                     key={color}
                     type="button"
@@ -383,6 +384,21 @@ export default function Categories() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ isOpen: false, category: null })}
+        onConfirm={confirmDelete}
+        title={t('delete_category_title') || 'Delete Category'}
+        message={
+          deleteConfirm.category
+            ? `${t('delete_category_msg') || 'Are you sure you want to delete the category'} "${deleteConfirm.category.name}"?\n\n${t('delete_category_warning') || 'This action cannot be undone. Any transactions or budgets using this category will become uncategorized.'}`
+            : ''
+        }
+        confirmText={t('delete')}
+        cancelText={t('cancel')}
+        type="danger"
+      />
     </div>
   )
 }

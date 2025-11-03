@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { formatCurrency, getCurrencySymbol, formatCurrencyWithSymbol } from '../utils/currency'
-import { me } from '../services/auth'
+import { me, type User } from '../services/auth'
 
 export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AUD' | 'CAD' | 'JPY' | 'AED' | string
 
@@ -32,8 +32,8 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true
     me()
-      .then((u) => {
-        const apiCur = (u as any)?.preferredCurrency
+      .then((user: User) => {
+        const apiCur = user.preferredCurrency
         if (mounted && apiCur && typeof apiCur === 'string') {
           setCurrency(apiCur)
           // also align local storage cache if present
@@ -41,11 +41,14 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
             const raw = localStorage.getItem(STORAGE_KEY)
             const next = raw ? { ...JSON.parse(raw), currency: apiCur } : { currency: apiCur }
             localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-          } catch {}
+          } catch (error) {
+            console.error('[CurrencyContext] Failed to update localStorage:', error)
+          }
         }
       })
-      .catch(() => {
+      .catch((error) => {
         // Silently fail if user is not authenticated
+        console.debug('[CurrencyContext] Failed to fetch user currency preference:', error)
       })
     return () => { mounted = false }
   }, [])
@@ -55,28 +58,35 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
-          const parsed = JSON.parse(e.newValue)
+          const parsed = JSON.parse(e.newValue) as { currency?: string }
           if (parsed?.currency && typeof parsed.currency === 'string') {
             setCurrency(parsed.currency)
           }
-        } catch {}
+        } catch (error) {
+          console.error('[CurrencyContext] Failed to parse storage event:', error)
+        }
       }
     }
+    
     const onPrefsUpdated = () => {
       try {
         const raw = localStorage.getItem(STORAGE_KEY)
         if (!raw) return
-        const parsed = JSON.parse(raw)
+        const parsed = JSON.parse(raw) as { currency?: string }
         if (parsed?.currency && typeof parsed.currency === 'string') {
           setCurrency(parsed.currency)
         }
-      } catch {}
+      } catch (error) {
+        console.error('[CurrencyContext] Failed to parse user preferences:', error)
+      }
     }
+    
     window.addEventListener('storage', onStorage)
-    window.addEventListener('userPreferencesUpdated', onPrefsUpdated as any)
+    window.addEventListener('userPreferencesUpdated', onPrefsUpdated)
+    
     return () => {
       window.removeEventListener('storage', onStorage)
-      window.removeEventListener('userPreferencesUpdated', onPrefsUpdated as any)
+      window.removeEventListener('userPreferencesUpdated', onPrefsUpdated)
     }
   }, [])
 

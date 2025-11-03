@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,12 +6,12 @@ import { useToast } from '../components/ToastProvider'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { useLocalStorage } from '../hooks/useLocalStorage'
 import { useI18n } from '../contexts/I18nContext'
-
-import { me as fetchMe, changePassword, deleteMe, updateMe } from '../services/auth'
+import { TIMING, VALIDATION } from '../config/constants'
+import { me as fetchMe, changePassword, deleteMe, updateMe, type User } from '../services/auth'
 import { ConfirmModal } from '../components/common'
 
 const profileSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  name: z.string().min(VALIDATION.USER_NAME.MIN_LENGTH, `Name must be at least ${VALIDATION.USER_NAME.MIN_LENGTH} characters`),
   email: z.string().email('Please enter a valid email address'),
   currency: z.string().min(1, 'Currency is required'),
 })
@@ -19,7 +19,7 @@ const profileSchema = z.object({
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),
-    newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+    newPassword: z.string().min(VALIDATION.PASSWORD.MIN_LENGTH, `New password must be at least ${VALIDATION.PASSWORD.MIN_LENGTH} characters`),
     confirmNewPassword: z.string().min(1, 'Please confirm your new password'),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
@@ -56,25 +56,27 @@ export default function Profile() {
   const [reloadTick, setReloadTick] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const [storedPreferences, setStoredPreferences] = useLocalStorage('userPreferences', {
+  const [storedPreferences, setStoredPreferences] = useLocalStorage<ProfileForm>('userPreferences', {
     name: '',
     email: '',
     currency: 'INR',
   })
 
   const { register, handleSubmit, formState: { errors, isDirty }, reset } = useForm<ProfileForm>({
-    resolver: zodResolver(profileSchema) as any,
-    defaultValues: storedPreferences as ProfileForm,
+    resolver: zodResolver(profileSchema),
+    defaultValues: storedPreferences,
   })
 
   const { register: registerPwd, handleSubmit: handleSubmitPwd, reset: resetPwd, formState: { errors: pwdErrors }, watch: watchPwd } = useForm<ChangePasswordForm>({
-    resolver: zodResolver(changePasswordSchema) as any,
+    resolver: zodResolver(changePasswordSchema),
     defaultValues: {
       currentPassword: '',
       newPassword: '',
       confirmNewPassword: '',
     },
   })
+  
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const newPwdValue = watchPwd('newPassword') || ''
   const pwdStrength = (() => {
@@ -97,17 +99,21 @@ export default function Profile() {
     const loadProfile = async () => {
       try {
         setIsLoading(true)
-        const apiData = await fetchMe()
+        const apiData: User = await fetchMe()
         const profileData: ProfileForm = {
-          name: (apiData as any).fullName ?? storedPreferences.name ?? '',
-          email: (apiData as any).email ?? storedPreferences.email ?? '',
-          currency: (apiData as any).preferredCurrency ?? storedPreferences.currency ?? 'INR',
+          name: apiData.fullName ?? storedPreferences.name ?? '',
+          email: apiData.email ?? storedPreferences.email ?? '',
+          currency: apiData.preferredCurrency ?? storedPreferences.currency ?? 'INR',
         }
         reset(profileData)
         setStoredPreferences(profileData)
-        try { window.dispatchEvent(new Event('userPreferencesUpdated')) } catch {}
+        try { 
+          window.dispatchEvent(new Event('userPreferencesUpdated')) 
+        } catch (error) {
+          console.error('[Profile] Failed to dispatch userPreferencesUpdated event:', error)
+        }
       } catch (error) {
-        console.warn('Failed to load from API, using local storage:', error)
+        console.error('[Profile] Failed to load from API, using local storage:', error)
         reset(storedPreferences)
       } finally {
         setIsLoading(false)
@@ -121,8 +127,27 @@ export default function Profile() {
     if (isRefreshing) return
     setIsRefreshing(true)
     setReloadTick((v) => v + 1)
-    setTimeout(() => setIsRefreshing(false), 2000)
+    
+    // Clear any existing timer
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current)
+    }
+    
+    // Set new timer and store reference
+    refreshTimerRef.current = setTimeout(() => {
+      setIsRefreshing(false)
+      refreshTimerRef.current = null
+    }, TIMING.REFRESH_DURATION)
   }
+  
+  // Cleanup refresh timer on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current)
+      }
+    }
+  }, [])
 
   const onSubmit = async (data: ProfileForm) => {
     try {
@@ -130,10 +155,15 @@ export default function Profile() {
       // Persist to backend (full name, email, preferred currency)
       await updateMe({ fullName: data.name, email: data.email, preferredCurrency: data.currency })
       setStoredPreferences(data)
-      try { window.dispatchEvent(new Event('userPreferencesUpdated')) } catch {}
+      try { 
+        window.dispatchEvent(new Event('userPreferencesUpdated')) 
+      } catch (error) {
+        console.error('[Profile] Failed to dispatch userPreferencesUpdated event:', error)
+      }
       show(t('profile_saved'), { type: 'success' })
       reset(data)
-    } catch {
+    } catch (error) {
+      console.error('[Profile] Failed to save profile:', error)
       show(t('failed_to_save_profile'), { type: 'error' })
     } finally {
       setIsSaving(false)
