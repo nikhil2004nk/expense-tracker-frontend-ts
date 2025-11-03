@@ -1,4 +1,4 @@
-import { Component, ReactNode } from 'react'
+import { Component, type ReactNode } from 'react'
 import { XCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 
 interface Props {
