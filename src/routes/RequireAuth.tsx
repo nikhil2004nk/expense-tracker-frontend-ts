@@ -25,7 +25,7 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
           setChecking(false)
         }
       } catch (error) {
-        console.error('[RequireAuth] Authentication check failed:', error)
+        console.debug('[RequireAuth] Not authenticated:', error)
         // No need to call logout() - if auth fails, there's no session to clear
         // The backend uses HTTP-only cookies, so we can't clear them from frontend anyway
         if (mounted) {
