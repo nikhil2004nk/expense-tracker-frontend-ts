@@ -1,9 +1,10 @@
 /**
  * Authentication service
+ * 
+ * SECURITY: Authentication state is managed entirely by HTTP-only cookies.
+ * We never store session tokens in localStorage to prevent XSS attacks.
  */
 import { apiRequest, getApiBaseUrl } from './api-client'
-
-const SESSION_KEY = 'auth_session'
 
 export type User = {
   id: string
@@ -12,15 +13,20 @@ export type User = {
   preferredCurrency?: string
 }
 
+/**
+ * Login user and establish authenticated session via HTTP-only cookie
+ */
 export async function login({ email, password }: { email: string; password: string }): Promise<User> {
   const data = await apiRequest<User>('/auth/login', {
     method: 'POST',
     body: { email, password },
   })
-  localStorage.setItem(SESSION_KEY, '1')
   return data
 }
 
+/**
+ * Register new user
+ */
 export async function register({ name, email, password }: { name: string; email: string; password: string }): Promise<User> {
   const data = await apiRequest<User>('/auth/register', {
     method: 'POST',
@@ -29,18 +35,27 @@ export async function register({ name, email, password }: { name: string; email:
   return data
 }
 
+/**
+ * Get current authenticated user info
+ * @throws ApiError if not authenticated
+ */
 export async function me(): Promise<User> {
   return apiRequest<User>('/auth/me', { method: 'GET' })
 }
 
-export function logout() {
+/**
+ * Logout user and clear authenticated session
+ */
+export async function logout(): Promise<void> {
   const API_BASE = getApiBaseUrl()
-  fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {})
-  localStorage.removeItem(SESSION_KEY)
-}
-
-export function isAuthenticated(): boolean {
-  return localStorage.getItem(SESSION_KEY) === '1'
+  try {
+    await fetch(`${API_BASE}/auth/logout`, { 
+      method: 'POST', 
+      credentials: 'include' 
+    })
+  } catch (error) {
+    console.error('[Auth] Logout request failed:', error)
+  }
 }
 
 /**

@@ -8,18 +8,14 @@ import { XCircleIcon, CheckCircleIcon, ArrowPathIcon, MoonIcon, SunIcon, EyeIcon
 import ScrollToTop from '../../components/common/ScrollToTop'
 import { useI18n } from '../../contexts/I18nContext'
 import { useTheme } from '../../contexts/ThemeContext'
-import { useSettings } from '../../contexts/SettingsContext'
+import LanguageSelector from '../../components/LanguageSelector'
+import { TIMING } from '../../config/constants'
 
 export default function Register() {
   const navigate = useNavigate()
   const { t } = useI18n()
   const { mounted, currentTheme, toggleTheme } = useTheme()
-  const { settings, setSettings } = useSettings()
-  const languages = [
-    { code: 'en', label: 'EN' },
-    { code: 'hi', label: 'हिं' },
-    { code: 'mr', label: 'मरा' },
-  ]
+  
   const schema = z
     .object({
       name: z.string().min(2, t('name_min_2')),
@@ -39,7 +35,7 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(schema),
     mode: 'onTouched',
   })
 
@@ -49,7 +45,7 @@ export default function Register() {
     try {
       await registerUser({ name: values.name, email: values.email, password: values.password })
       setServerSuccess(t('registration_success'))
-      setTimeout(() => navigate('/login'), 700)
+      setTimeout(() => navigate('/login'), TIMING.REDIRECT_DELAY)
     } catch (err: any) {
       setServerError(err?.message || t('registration_failed'))
     }
@@ -71,26 +67,7 @@ export default function Register() {
               <SunIcon className="h-4 w-4" />
             )}
           </button>
-          <div role="group" aria-label={t('language_label') || 'Language'} className="flex items-center gap-0.5">
-            {languages.map((lang) => {
-              const active = settings.language === lang.code
-              return (
-                <button
-                  key={lang.code}
-                  onClick={() => setSettings((prev) => ({ ...prev, language: lang.code }))}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    active
-                      ? 'bg-emerald-600 text-white dark:bg-emerald-500'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                  aria-pressed={active}
-                  title={t('language_label') || 'Language'}
-                >
-                  {lang.label}
-                </button>
-              )
-            })}
-          </div>
+          <LanguageSelector />
         </div>
       </div>
       <ScrollToTop />

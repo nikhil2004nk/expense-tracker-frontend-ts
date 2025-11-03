@@ -1,44 +1,66 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { isAuthenticated, me, logout } from '../services/auth'
+import { me, logout } from '../services/auth'
 import { useEffect, useState } from 'react'
+import { Loader } from '../components/common'
 
+/**
+ * RequireAuth component - protects routes by verifying authentication with backend
+ * Shows loading state while checking authentication status
+ */
 export default function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation()
-  const [checked, setChecked] = useState(false)
-  const [allowed, setAllowed] = useState(false)
+  const [checking, setChecking] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
-    let active = true
-    const run = async () => {
-      if (!isAuthenticated()) {
-        if (active) {
-          setAllowed(false)
-          setChecked(true)
-        }
-        return
-      }
+    const controller = new AbortController()
+    let mounted = true
+
+    const checkAuth = async () => {
       try {
         await me()
-        if (active) {
-          setAllowed(true)
-          setChecked(true)
+        if (mounted) {
+          setIsAuthenticated(true)
+          setChecking(false)
         }
-      } catch {
-        logout()
-        if (active) {
-          setAllowed(false)
-          setChecked(true)
+      } catch (error) {
+        console.error('[RequireAuth] Authentication check failed:', error)
+        // Clear session on authentication failure
+        await logout()
+        if (mounted) {
+          setIsAuthenticated(false)
+          setChecking(false)
         }
       }
     }
-    run()
+
+    checkAuth()
+
     return () => {
-      active = false
+      mounted = false
+      controller.abort()
     }
   }, [])
 
-  if (!checked) return null
-  if (!allowed) return <Navigate to="/login" state={{ from: location }} replace />
-  return children
+  // Show loading state while checking authentication
+  if (checking) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Loader size="lg" />
+          <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            Verifying authentication...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  return <>{children}</>
 }

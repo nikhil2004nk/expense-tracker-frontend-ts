@@ -71,7 +71,11 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
   // load categories to help localize names when embedded cat lacks fields
   useEffect(() => {
     let mounted = true
-    fetchCategories().then(c => { if (mounted) setCategories(c) }).catch(() => {})
+    fetchCategories()
+      .then(c => { if (mounted) setCategories(c) })
+      .catch((error) => {
+        console.error('[TransactionList] Failed to load categories:', error)
+      })
     return () => { mounted = false }
   }, [])
 

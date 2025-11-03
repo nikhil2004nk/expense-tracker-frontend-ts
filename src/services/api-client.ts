@@ -2,7 +2,25 @@
  * Centralized API client with authentication and error handling
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+// Validate required environment variables
+const API_BASE = (() => {
+  const url = import.meta.env.VITE_API_URL
+  
+  // In production, require explicit API URL
+  if (import.meta.env.MODE === 'production' && !url) {
+    throw new Error(
+      'VITE_API_URL environment variable is required in production. ' +
+      'Please set it in your .env file or deployment configuration.'
+    )
+  }
+  
+  // Default to localhost in development
+  const baseUrl = url || 'http://localhost:3000'
+  
+  console.info('[API Client] Using API base URL:', baseUrl)
+  
+  return baseUrl
+})()
 
 export class ApiError extends Error {
   status?: number

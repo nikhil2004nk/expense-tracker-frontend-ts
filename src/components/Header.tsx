@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { logout, me as fetchMe, isAuthenticated } from '../services/auth'
+import { logout, me as fetchMe } from '../services/auth'
 import { useEffect, useMemo, useState } from 'react'
 import { useI18n } from '../contexts/I18nContext'
 import { Bars3Icon, CurrencyRupeeIcon, ChevronDownIcon, UserCircleIcon, Cog6ToothIcon, ArrowRightOnRectangleIcon, MoonIcon, SunIcon, LanguageIcon } from '@heroicons/react/24/outline'
 import { useTheme } from '../contexts/ThemeContext'
 import { useSettings } from '../contexts/SettingsContext'
+import type { User } from '../services/auth'
 
 export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
   const { t } = useI18n()
@@ -23,39 +24,53 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
   }, [settings?.language])
 
   useEffect(() => {
-    let active = true
-    if (!isAuthenticated()) {
-      return
-    }
-    const load = async () => {
+    const controller = new AbortController()
+    let mounted = true
+
+    const loadUserInfo = async () => {
       try {
-        const u = await fetchMe()
-        if (!active) return
-        setUserName((u as any).fullName || '')
-        setUserEmail((u as any).email || '')
-      } catch {
+        const user: User = await fetchMe()
+        if (!mounted) return
+        setUserName(user.fullName || '')
+        setUserEmail(user.email || '')
+      } catch (error) {
+        console.error('[Header] Failed to load user info:', error)
+        // Try loading from localStorage as fallback
         try {
           const raw = localStorage.getItem('userPreferences')
-          if (raw) {
-            const prefs = JSON.parse(raw)
+          if (raw && mounted) {
+            const prefs = JSON.parse(raw) as { name?: string; email?: string }
             setUserName(prefs?.name || '')
             setUserEmail(prefs?.email || '')
           }
-        } catch {}
+        } catch (parseError) {
+          console.error('[Header] Failed to parse user preferences:', parseError)
+        }
       }
     }
-    load()
-    const onPrefsUpdated = () => {
+
+    loadUserInfo()
+
+    // Listen for user preference updates
+    const handlePrefsUpdate = () => {
       try {
         const raw = localStorage.getItem('userPreferences')
         if (!raw) return
-        const prefs = JSON.parse(raw)
+        const prefs = JSON.parse(raw) as { name?: string; email?: string }
         setUserName(prefs?.name || '')
         setUserEmail(prefs?.email || '')
-      } catch {}
+      } catch (error) {
+        console.error('[Header] Failed to handle preferences update:', error)
+      }
     }
-    window.addEventListener('userPreferencesUpdated', onPrefsUpdated as any)
-    return () => window.removeEventListener('userPreferencesUpdated', onPrefsUpdated as any)
+
+    window.addEventListener('userPreferencesUpdated', handlePrefsUpdate)
+
+    return () => {
+      mounted = false
+      controller.abort()
+      window.removeEventListener('userPreferencesUpdated', handlePrefsUpdate)
+    }
   }, [])
 
   const initials = useMemo(() => {
@@ -159,9 +174,9 @@ export default function Header({ onMenuToggle }: { onMenuToggle: () => void }) {
                       <div className="border-t border-gray-200 dark:border-gray-700 my-2" />
 
                       <button
-                        onClick={() => {
-                          logout()
+                        onClick={async () => {
                           setShowUserMenu(false)
+                          await logout()
                           navigate('/login')
                         }}
                         className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"

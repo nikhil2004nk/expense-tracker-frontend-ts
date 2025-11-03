@@ -12,9 +12,7 @@ import { useI18n } from '../../contexts/I18nContext'
 import { useSettings } from '../../contexts/SettingsContext'
 import { PlusIcon, ChevronDownIcon, ArrowUpTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
 
-// Predefined emoji and color options for inline category creation
-const EMOJI_OPTIONS = ['🛒', '🍕', '🚗', '🎬', '💡', '🏥', '🛍️', '✈️', '🏠', '📱', '⚽', '🎓', '💰', '🎨', '🍔', '☕', '🎮', '📚', '💼', '🏋️']
-const COLOR_OPTIONS = ['#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#6366f1']
+import { FILE_UPLOAD, CATEGORY_EMOJIS, CATEGORY_COLORS, DATE_LIMITS, VALIDATION } from '../../config/constants'
 
 // Date helpers (use local timezone, not UTC ISO, to avoid off-by-one issues)
 function formatLocalISODate(d: Date) {
@@ -23,26 +21,28 @@ function formatLocalISODate(d: Date) {
   const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
-const todayISO = (() => {
+
+/**
+ * Get today's date in ISO format (YYYY-MM-DD) using local timezone
+ * Computed dynamically to handle timezone changes and long-running sessions
+ */
+function getTodayISO(): string {
   const d = new Date()
-  d.setHours(0,0,0,0)
+  d.setHours(0, 0, 0, 0)
   return formatLocalISODate(d)
-})()
-const minDateISO = (() => {
+}
+
+/**
+ * Get minimum allowed date (10 years back from today)
+ * Computed dynamically to handle long-running sessions
+ */
+function getMinDateISO(): string {
   const d = new Date()
-  d.setHours(0,0,0,0)
-  d.setFullYear(d.getFullYear() - 10)
+  d.setHours(0, 0, 0, 0)
+  d.setFullYear(d.getFullYear() - DATE_LIMITS.MAX_YEARS_BACK)
   d.setMonth(0)
   d.setDate(1)
   return formatLocalISODate(d)
-})()
-
-export type TransactionFormValues = {
-  amount: number
-  categoryId?: string
-  date: string
-  notes?: string
-  receipt?: any
 }
 
 export default function TransactionForm({
@@ -63,22 +63,45 @@ export default function TransactionForm({
   const [receiptUrl, setReceiptUrl] = useState('')
   const [receiptName, setReceiptName] = useState('')
   const [uploading, setUploading] = useState(false)
-  const schema = useMemo(() => z.object({
-    amount: z.coerce
-      .number()
-      .refine((v) => !Number.isNaN(v), { message: t('amount_required') })
-      .nonnegative(t('amount_nonnegative')),
-    categoryId: z.string().optional(),
-    date: z.string().min(1, t('date_required'))
-      .refine((s) => !Number.isNaN(Date.parse(s)), { message: t('invalid_date') })
-      .refine((s) => s >= minDateISO, { message: `${t('date_min_prefix')} ${minDateISO}` })
-      .refine((s) => s <= todayISO, { message: t('date_future_forbidden') }),
-    notes: z.string().optional(),
-    receipt: z.any().optional(),
-  }), [t])
+  
+  const schema = useMemo(() => {
+    const today = getTodayISO()
+    const minDate = getMinDateISO()
+    
+    return z.object({
+      amount: z.coerce
+        .number()
+        .refine((v) => !Number.isNaN(v), { message: t('amount_required') })
+        .nonnegative(t('amount_nonnegative')),
+      categoryId: z.string().optional(),
+      date: z.string().min(1, t('date_required'))
+        .refine((s) => !Number.isNaN(Date.parse(s)), { message: t('invalid_date') })
+        .refine((s) => s >= minDate, { message: `${t('date_min_prefix')} ${minDate}` })
+        .refine((s) => s <= today, { message: t('date_future_forbidden') }),
+      notes: z.string().optional(),
+      receipt: z.any().optional(),
+    })
+  }, [t])
+  
+  type TransactionFormValues = z.infer<typeof schema>
+  
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<TransactionFormValues>({
+    // Note: zodResolver with z.coerce creates a type mismatch that's safe at runtime
+    // The resolver correctly transforms string inputs to numbers
     resolver: zodResolver(schema) as any,
-    defaultValues: (defaultValues as any) || ({ amount: 0 as any, categoryId: '', date: '', notes: '', receipt: undefined } as any),
+    defaultValues: defaultValues ? {
+      amount: defaultValues.amount,
+      categoryId: defaultValues.categoryId || '',
+      date: defaultValues.date,
+      notes: defaultValues.notes || '',
+      receipt: undefined,
+    } : {
+      amount: 0,
+      categoryId: '',
+      date: '',
+      notes: '',
+      receipt: undefined,
+    },
   })
 
   // Load categories on mount
@@ -99,13 +122,22 @@ export default function TransactionForm({
 
   useEffect(() => {
     if (defaultValues) {
-      reset(defaultValues as any)
+      reset({
+        amount: defaultValues.amount,
+        categoryId: defaultValues.categoryId,
+        date: defaultValues.date,
+        notes: defaultValues.notes,
+        receipt: undefined,
+      })
       if (defaultValues.receiptUrl) {
         setReceiptUrl(defaultValues.receiptUrl)
         try {
           const fromUrl = defaultValues.receiptUrl.split('/').pop() || ''
           setReceiptName(fromUrl)
-        } catch { setReceiptName('Document') }
+        } catch (error) {
+          console.error('[TransactionForm] Failed to parse receipt URL:', error)
+          setReceiptName('Document')
+        }
       }
     }
   }, [defaultValues, reset])
@@ -122,8 +154,14 @@ export default function TransactionForm({
       await onSubmit(payload)
       show(t('transaction_saved'), { type: 'success' })
       if (!defaultValues) {
-        reset({ amount: 0 as any, categoryId: '', date: '', notes: '', receipt: undefined })
-        setValue('amount', 0 as any)
+        reset({
+          amount: 0,
+          categoryId: '',
+          date: '',
+          notes: '',
+          receipt: undefined,
+        })
+        setValue('amount', 0)
         setReceiptUrl('')
         setReceiptName('')
         setCatOpen(false)
@@ -145,21 +183,19 @@ export default function TransactionForm({
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
     const file = files[0]
-    const maxBytes = 10 * 1024 * 1024 // 10MB
-    const allowedTypes = new Set([
-      'image/png',
-      'image/jpeg',
-      'image/jpg',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ])
-    if (file.size > maxBytes) {
-      show(t('file_too_large'), { type: 'error' })
+    
+    // Validate file size
+    if (file.size > FILE_UPLOAD.MAX_SIZE_BYTES) {
+      show(t('file_too_large') || `File size exceeds ${FILE_UPLOAD.MAX_SIZE_MB}MB limit`, { type: 'error' })
       return
     }
-    if (!allowedTypes.has(file.type)) {
-      show(t('unsupported_file_type'), { type: 'error' })
+    
+    // Validate file type
+    if (!FILE_UPLOAD.ALLOWED_TYPES.has(file.type)) {
+      show(
+        t('unsupported_file_type') || `Only ${FILE_UPLOAD.ALLOWED_EXTENSIONS.join(', ')} files are allowed`, 
+        { type: 'error' }
+      )
       return
     }
     try {
@@ -168,7 +204,7 @@ export default function TransactionForm({
       setReceiptUrl(url)
       setReceiptName(file.name)
       // clear controlled file input value
-      setValue('receipt', undefined as any)
+      setValue('receipt', undefined)
     } catch (err: any) {
       show(err?.message || t('upload_failed'), { type: 'error' })
     } finally {
@@ -204,9 +240,13 @@ export default function TransactionForm({
 
   const validateNewCat = () => {
     const errs: { name?: string } = {}
-    if (!newCat.name.trim()) errs.name = t('category_name_required') || 'Category name is required'
-    else if (newCat.name.trim().length < 2) errs.name = t('category_name_min') || 'Category name must be at least 2 characters'
-    else if (newCat.name.trim().length > 100) errs.name = t('category_name_max') || 'Category name must not exceed 100 characters'
+    if (!newCat.name.trim()) {
+      errs.name = t('category_name_required') || 'Category name is required'
+    } else if (newCat.name.trim().length < VALIDATION.CATEGORY_NAME.MIN_LENGTH) {
+      errs.name = t('category_name_min') || `Category name must be at least ${VALIDATION.CATEGORY_NAME.MIN_LENGTH} characters`
+    } else if (newCat.name.trim().length > VALIDATION.CATEGORY_NAME.MAX_LENGTH) {
+      errs.name = t('category_name_max') || `Category name must not exceed ${VALIDATION.CATEGORY_NAME.MAX_LENGTH} characters`
+    }
     setNewCatErrors(errs)
     return Object.keys(errs).length === 0
   }
@@ -278,14 +318,19 @@ export default function TransactionForm({
             <input
               id="amount"
               type="number"
-              step="1"
+              step="0.01"
               min={0}
-              inputMode="numeric"
-              onKeyDown={(e) => { if (e.key === '-') e.preventDefault() }}
+              inputMode="decimal"
+              onKeyDown={(e) => { 
+                // Prevent invalid characters in numeric input
+                if (['-', 'e', 'E', '+'].includes(e.key)) {
+                  e.preventDefault()
+                }
+              }}
               className={`block w-full pl-7 pr-3 py-2 border rounded-md shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white sm:text-sm ${
                 errors.amount ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
-              placeholder="0"
+              placeholder="0.00"
               {...register('amount')}
             />
           </div>
@@ -396,8 +441,8 @@ export default function TransactionForm({
             <input
               id="date"
               type="date"
-              min={minDateISO}
-              max={todayISO}
+              min={getMinDateISO()}
+              max={getTodayISO()}
               className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white sm:text-sm ${
                 errors.date ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
@@ -405,41 +450,56 @@ export default function TransactionForm({
               onBlur={(e) => {
                 const v = e.currentTarget.value
                 if (!v) return
-                if (v < minDateISO) setValue('date', minDateISO)
-                if (v > todayISO) setValue('date', todayISO)
+                const today = getTodayISO()
+                const minDate = getMinDateISO()
+                if (v < minDate) setValue('date', minDate)
+                if (v > today) setValue('date', today)
               }}
             />
             <div className="flex flex-wrap gap-2">
-              <button type="button" className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => setValue('date', todayISO)}>
+              <button 
+                type="button" 
+                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                onClick={() => setValue('date', getTodayISO())}
+              >
                 {t('today')}
               </button>
-              <button type="button" className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+              <button 
+                type="button" 
+                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                 onClick={() => {
                   const d = new Date()
                   d.setDate(d.getDate() - 1)
-                  d.setHours(0,0,0,0)
+                  d.setHours(0, 0, 0, 0)
                   setValue('date', formatLocalISODate(d))
-                }}>
+                }}
+              >
                 {t('yesterday')}
               </button>
-              <button type="button" className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+              <button 
+                type="button" 
+                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                 onClick={() => {
                   const d = new Date()
                   d.setDate(d.getDate() - 7)
-                  d.setHours(0,0,0,0)
+                  d.setHours(0, 0, 0, 0)
                   const iso = formatLocalISODate(d)
-                  setValue('date', iso < minDateISO ? minDateISO : iso)
-                }}>
+                  const minDate = getMinDateISO()
+                  setValue('date', iso < minDate ? minDate : iso)
+                }}
+              >
                 {t('seven_days_ago')}
               </button>
-              <button type="button" className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+              <button 
+                type="button" 
+                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                 onClick={() => {
                   const d = new Date()
                   d.setDate(1)
-                  d.setHours(0,0,0,0)
+                  d.setHours(0, 0, 0, 0)
                   setValue('date', formatLocalISODate(d))
-                }}>
+                }}
+              >
                 {t('start_of_month')}
               </button>
             </div>
@@ -477,7 +537,7 @@ export default function TransactionForm({
                 setDragOver(false);
                 const files = e.dataTransfer.files;
                 if (files && files.length > 0) {
-                  setValue('receipt', files as any);
+                  setValue('receipt', files);
                   void handleFiles(files);
                 }
               }}
@@ -558,7 +618,7 @@ export default function TransactionForm({
               onChange={(e) => setNewCat((p) => ({ ...p, name: e.target.value }))}
               className={`block w-full rounded-lg border px-4 py-2.5 text-sm shadow-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 transition-colors dark:bg-gray-700 dark:text-white ${newCatErrors.name ? 'border-red-300 dark:border-red-500/50 focus:ring-red-500 focus:border-red-500 bg-red-50/50 dark:bg-red-900/10' : 'border-gray-300 dark:border-gray-600 focus:ring-emerald-500 focus:border-emerald-500 hover:border-gray-400 dark:hover:border-gray-500'}`}
               placeholder={t('category_name_placeholder')}
-              maxLength={100}
+              maxLength={VALIDATION.CATEGORY_NAME.MAX_LENGTH}
             />
             {newCatErrors.name && (
               <p className="mt-2 text-sm text-red-600 dark:text-red-400">{newCatErrors.name}</p>
@@ -569,7 +629,7 @@ export default function TransactionForm({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('icon_optional')}</label>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {EMOJI_OPTIONS.map((emoji) => (
+                {CATEGORY_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
                     type="button"
@@ -596,7 +656,7 @@ export default function TransactionForm({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{t('color_optional')}</label>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {COLOR_OPTIONS.map((color) => (
+                {CATEGORY_COLORS.map((color) => (
                   <button
                     key={color}
                     type="button"

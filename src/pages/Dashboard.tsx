@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import {
   ResponsiveContainer,
   BarChart,
@@ -20,6 +20,7 @@ import { useSettings } from '../contexts/SettingsContext'
 import { formatDate } from '../utils/date'
 import { useI18n } from '../contexts/I18nContext'
 import { fetchCategories, type Category } from '../services/categories'
+import { CHART_COLORS } from '../config/constants'
 import {
   ArrowPathIcon,
   XCircleIcon,
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const [compareMonth, setCompareMonth] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [showLastSixMonths, setShowLastSixMonths] = useState<boolean>(false)
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Selected month title (always show)
   const formattedMonth = useMemo(() => {
@@ -99,29 +101,39 @@ export default function Dashboard() {
     if (isRefreshing) return
     setIsRefreshing(true)
     setReloadTick((v) => v + 1)
-    setTimeout(() => setIsRefreshing(false), 2000)
+    
+    // Clear any existing timer
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current)
+    }
+    
+    // Set new timer and store reference
+    refreshTimerRef.current = setTimeout(() => {
+      setIsRefreshing(false)
+      refreshTimerRef.current = null
+    }, 2000)
   }
+
+  // Cleanup refresh timer on unmount
+  useEffect(() => {
+    return () => {
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current)
+      }
+    }
+  }, [])
 
   // Load categories for localization mapping
   useEffect(() => {
     let active = true
     fetchCategories()
       .then((cats) => { if (active) setCategories(cats) })
-      .catch(() => {})
+      .catch((error) => {
+        console.error('[Dashboard] Failed to load categories:', error)
+      })
     return () => { active = false }
   }, [])
 
-  const categoryColors = [
-    '#6366F1',
-    '#10B981',
-    '#F59E0B',
-    '#EF4444',
-    '#8B5CF6',
-    '#14B8A6',
-    '#F97316',
-    '#EC4899',
-    '#06B6D4',
-  ]
 
   if (loading) {
     return (
@@ -509,7 +521,7 @@ export default function Dashboard() {
                     {categoryData.map((entry, index) => {
                       // Try to find matching budget to get category color (match against any localized name)
                       const matchingBudget = budgets.find(b => matchesName(b.category, entry.name))
-                      const color = matchingBudget?.category?.color || categoryColors[index % categoryColors.length]
+                      const color = matchingBudget?.category?.color || CHART_COLORS[index % CHART_COLORS.length]
                       return <Cell key={`cell-${index}`} fill={color} />
                     })}
                   </Pie>

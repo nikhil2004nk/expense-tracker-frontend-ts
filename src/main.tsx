@@ -16,6 +16,7 @@ import { SettingsProvider } from './contexts/SettingsContext'
 import { I18nProvider } from './contexts/I18nContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { CurrencyProvider } from './contexts/CurrencyContext'
+import ErrorBoundary from './components/ErrorBoundary'
 
 const router = createHashRouter([
   {
@@ -63,8 +64,10 @@ const router = createHashRouter([
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <CurrencyProvider>
-      <RouterProvider router={router} />
-    </CurrencyProvider>
+    <ErrorBoundary>
+      <CurrencyProvider>
+        <RouterProvider router={router} />
+      </CurrencyProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )

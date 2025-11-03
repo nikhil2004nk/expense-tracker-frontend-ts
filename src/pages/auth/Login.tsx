@@ -8,19 +8,14 @@ import { XCircleIcon, ArrowPathIcon, MoonIcon, SunIcon, EyeIcon, EyeSlashIcon } 
 import ScrollToTop from '../../components/common/ScrollToTop'
 import { useI18n } from '../../contexts/I18nContext'
 import { useTheme } from '../../contexts/ThemeContext'
-import { useSettings } from '../../contexts/SettingsContext'
+import LanguageSelector from '../../components/LanguageSelector'
 
 export default function Login() {
   const navigate = useNavigate()
-  const location = useLocation() as any
+  const location = useLocation() as { state?: { from?: { pathname: string } } }
   const { t } = useI18n()
   const { mounted, currentTheme, toggleTheme } = useTheme()
-  const { settings, setSettings } = useSettings()
-  const languages = [
-    { code: 'en', label: 'EN' },
-    { code: 'hi', label: 'हिं' },
-    { code: 'mr', label: 'मरा' },
-  ]
+  
   const schema = z.object({
     email: z
       .string()
@@ -32,7 +27,7 @@ export default function Login() {
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
-    resolver: zodResolver(schema) as any,
+    resolver: zodResolver(schema),
     mode: 'onTouched',
   })
 
@@ -63,26 +58,7 @@ export default function Login() {
               <SunIcon className="h-4 w-4" />
             )}
           </button>
-          <div role="group" aria-label={t('language_label') || 'Language'} className="flex items-center gap-0.5">
-            {languages.map((lang) => {
-              const active = settings.language === lang.code
-              return (
-                <button
-                  key={lang.code}
-                  onClick={() => setSettings((prev) => ({ ...prev, language: lang.code }))}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                    active
-                      ? 'bg-emerald-600 text-white dark:bg-emerald-500'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                  aria-pressed={active}
-                  title={t('language_label') || 'Language'}
-                >
-                  {lang.label}
-                </button>
-              )
-            })}
-          </div>
+          <LanguageSelector />
         </div>
       </div>
       <ScrollToTop />

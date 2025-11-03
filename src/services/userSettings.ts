@@ -10,8 +10,11 @@ export type UserSettingsResponse = {
   updated_at: string
 }
 
-export async function getUserSettings(): Promise<UserSettingsResponse> {
-  return apiRequest<UserSettingsResponse>('/user/settings', { method: 'GET' })
+export async function getUserSettings(options: { signal?: AbortSignal } = {}): Promise<UserSettingsResponse> {
+  return apiRequest<UserSettingsResponse>('/user/settings', { 
+    method: 'GET',
+    signal: options.signal 
+  })
 }
 
 export async function updateUserSettings(payload: Partial<Pick<UserSettingsResponse, 'theme' | 'language' | 'date_format' | 'budget_alert_threshold'>>): Promise<UserSettingsResponse> {

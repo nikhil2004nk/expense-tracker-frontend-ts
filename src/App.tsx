@@ -15,13 +15,19 @@ function AppInner() {
   const { setSettings } = useSettings()
 
   useEffect(() => {
-    let aborted = false
-    ;(async () => {
+    const controller = new AbortController()
+    let mounted = true
+
+    const loadUserSettings = async () => {
       try {
-        const data = await getUserSettings()
-        if (aborted) return
+        const data = await getUserSettings({ signal: controller.signal })
+        if (!mounted) return
+        
         // Sync theme
-        if (data.theme === 'light' || data.theme === 'dark') setTheme(data.theme)
+        if (data.theme === 'light' || data.theme === 'dark') {
+          setTheme(data.theme)
+        }
+        
         // Sync settings context
         setSettings((prev) => ({
           ...prev,
@@ -29,12 +35,19 @@ function AppInner() {
           dateFormat: data.date_format,
           budgetAlertThreshold: Math.round(data.budget_alert_threshold),
         }))
-      } catch {
-        // Ignore if unauthenticated or network error
+      } catch (error: unknown) {
+        // Only log errors that aren't abort errors
+        if (error instanceof Error && error.name !== 'AbortError') {
+          console.error('[AppInner] Failed to load user settings:', error)
+        }
       }
-    })()
+    }
+
+    loadUserSettings()
+
     return () => {
-      aborted = true
+      mounted = false
+      controller.abort()
     }
   }, [setTheme, setSettings])
 

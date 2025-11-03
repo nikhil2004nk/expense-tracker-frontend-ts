@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { formatCurrency, getCurrencySymbol, formatCurrencyWithSymbol } from '../utils/currency'
-import { me, isAuthenticated } from '../services/auth'
+import { me } from '../services/auth'
 
 export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AUD' | 'CAD' | 'JPY' | 'AED' | string
 
@@ -31,22 +31,22 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   // Try to hydrate from API on mount
   useEffect(() => {
     let mounted = true
-    if (isAuthenticated()) {
-      me()
-        .then((u) => {
-          const apiCur = (u as any)?.preferredCurrency
-          if (mounted && apiCur && typeof apiCur === 'string') {
-            setCurrency(apiCur)
-            // also align local storage cache if present
-            try {
-              const raw = localStorage.getItem(STORAGE_KEY)
-              const next = raw ? { ...JSON.parse(raw), currency: apiCur } : { currency: apiCur }
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-            } catch {}
-          }
-        })
-        .catch(() => {})
-    }
+    me()
+      .then((u) => {
+        const apiCur = (u as any)?.preferredCurrency
+        if (mounted && apiCur && typeof apiCur === 'string') {
+          setCurrency(apiCur)
+          // also align local storage cache if present
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY)
+            const next = raw ? { ...JSON.parse(raw), currency: apiCur } : { currency: apiCur }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+          } catch {}
+        }
+      })
+      .catch(() => {
+        // Silently fail if user is not authenticated
+      })
     return () => { mounted = false }
   }, [])
 
