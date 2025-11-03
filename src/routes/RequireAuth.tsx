@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { me, logout } from '../services/auth'
+import { me } from '../services/auth'
 import { useEffect, useState } from 'react'
 import { Loader } from '../components/common'
 
@@ -26,8 +26,8 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('[RequireAuth] Authentication check failed:', error)
-        // Clear session on authentication failure
-        await logout()
+        // No need to call logout() - if auth fails, there's no session to clear
+        // The backend uses HTTP-only cookies, so we can't clear them from frontend anyway
         if (mounted) {
           setIsAuthenticated(false)
           setChecking(false)
