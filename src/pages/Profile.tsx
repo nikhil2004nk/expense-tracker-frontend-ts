@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useNavigate } from 'react-router-dom'
 import { useToast } from '../components/ToastProvider'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { useLocalStorage } from '../hooks/useLocalStorage'
@@ -42,6 +43,7 @@ type ProfileForm = z.infer<typeof profileSchema>
 type ChangePasswordForm = z.infer<typeof changePasswordSchema>
 
 export default function Profile() {
+  const navigate = useNavigate()
   const { show } = useToast()
   const { t } = useI18n()
   const [isLoading, setIsLoading] = useState(true)
@@ -204,7 +206,7 @@ export default function Profile() {
       localStorage.clear()
       show(t('account_deleted'), { type: 'success' })
       setTimeout(() => {
-        window.location.href = '/login'
+        navigate('/login', { replace: true })
       }, 800)
     } catch (e: any) {
       show(e?.message || t('failed_to_delete_account'), { type: 'error' })
