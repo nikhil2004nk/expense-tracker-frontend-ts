@@ -68,7 +68,7 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
     options.compareMonth ? budgetService.getAll(options.compareMonth).catch(() => [] as Budget[]) : Promise.resolve([] as Budget[]),
   ])
 
-  // Calculate totals from budgets
+  // Calculate totals from budgets (only count budgets with amount set, i.e., budget > 0)
   // Total Income = sum of all budget amounts
   // Total Expense = sum of all spent amounts
   // Balance = budget remaining (income - expense)
@@ -76,15 +76,17 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
   let totalExpense = 0
 
   budgets.forEach(b => {
-    totalIncome += b.budget
-    totalExpense += b.spent
+    if (b.budget > 0) {
+      totalIncome += b.budget
+      totalExpense += b.spent
+    }
   })
 
   const balance = totalIncome - totalExpense
 
-  // Selected month: total budget
-  const selectedTotalBudget = budgets.reduce((sum, b) => sum + (b.budget || 0), 0)
-  const compareTotalBudget = (compareBudgets?.length ?? 0) > 0 ? compareBudgets.reduce((s, b) => s + (b.budget || 0), 0) : undefined
+  // Selected month: total budget (only count budgets with amount set)
+  const selectedTotalBudget = budgets.reduce((sum, b) => sum + (b.budget > 0 ? b.budget : 0), 0)
+  const compareTotalBudget = (compareBudgets?.length ?? 0) > 0 ? compareBudgets.reduce((s, b) => s + (b.budget > 0 ? b.budget : 0), 0) : undefined
 
   // Group by month - only show months that have transactions
   const monthMap = new Map<string, { income: number; expense: number; date: Date }>()
@@ -125,7 +127,7 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
   )
   const budgetTotalsByKey = new Map<string, number>()
   monthKeysForBudgets.forEach((mk, idx) => {
-    const total = monthlyBudgetsArrays[idx].reduce((sum, b) => sum + (b.budget || 0), 0)
+    const total = monthlyBudgetsArrays[idx].reduce((sum, b) => sum + (b.budget > 0 ? b.budget : 0), 0)
     budgetTotalsByKey.set(mk, total)
   })
 
@@ -157,8 +159,11 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
     }
   })
 
-  // Pending setup: categories with transactions this month but no budget created for this month
-  const budgetCategoryIds = new Set<string>(budgets.map(b => b.categoryId))
+  // Pending setup: categories with transactions this month but no budget amount set (budget === 0)
+  // Only include categories that have budget > 0 as "set up"
+  const budgetCategoryIdsWithAmount = new Set<string>(
+    budgets.filter(b => b.budget > 0).map(b => b.categoryId)
+  )
   const spentByCatId = new Map<string, number>()
   monthFilteredTransactions.forEach(t => {
     const cid = t.categoryId
@@ -167,7 +172,7 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
     spentByCatId.set(cid, prev + Math.abs(t.amount))
   })
   const pendingSetup: PendingSetupItem[] = Array.from(spentByCatId.entries())
-    .filter(([cid]) => !!cid && !budgetCategoryIds.has(cid))
+    .filter(([cid]) => !!cid && !budgetCategoryIdsWithAmount.has(cid))
     .map(([cid, spent]) => {
       const sampleTxn = monthFilteredTransactions.find(tx => tx.categoryId === cid)
       return {

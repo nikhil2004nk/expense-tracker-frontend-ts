@@ -165,8 +165,15 @@ export default function Budgets() {
         spentByCat.set(t.categoryId, prev + Math.abs(t.amount))
       })
 
-      // Existing budget category IDs
-      const existingCatIds = new Set(budgets.map(b => b.categoryId))
+      // Filter existing budgets to only show those with:
+      // 1. A budget amount set (budget > 0), OR
+      // 2. Transactions in this month (category in spentByCat)
+      const filteredBudgets = budgets.filter(b => 
+        b.budget > 0 || spentByCat.has(b.categoryId)
+      )
+
+      // Existing budget category IDs (after filtering)
+      const existingCatIds = new Set(filteredBudgets.map(b => b.categoryId))
 
       // Create placeholders for categories present in transactions but missing in budgets
       const placeholders = Array.from(spentByCat.entries())
@@ -184,7 +191,7 @@ export default function Budgets() {
           } as Budget
         })
 
-      setBudgetData([...budgets, ...placeholders])
+      setBudgetData([...filteredBudgets, ...placeholders])
     } catch (error: unknown) {
       console.error('[Budgets] Failed to load budgets:', error)
       const message = error instanceof Error ? error.message : 'Failed to load budgets'

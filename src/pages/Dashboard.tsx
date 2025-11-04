@@ -204,9 +204,8 @@ export default function Dashboard() {
 
   const { totalIncome, totalExpense, balance, transactionCount, categoryCount, categoryData, recentTransactionsMonth, budgets, selectedMonthKey, compareMonthKey, selectedTotalExpense, selectedTotalBudget, compareTotalExpense, compareTotalBudget, pendingSetup } = dashboardData
 
-  // Calculate budgets with amount 0 (auto-created but not configured)
-  const budgetsNotConfigured = budgets.filter(b => b.budget === 0)
-  const totalPendingSetup = (pendingSetup?.length ?? 0) + budgetsNotConfigured.length
+  // Pending setup comes from dashboard service - only includes categories with transactions but no budget amount set
+  const totalPendingSetup = pendingSetup?.length ?? 0
 
   const getCatName = (cat?: { 
     name?: string; 
@@ -660,7 +659,7 @@ export default function Dashboard() {
             {t('auto_created_hint')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {/* Categories with transactions but no budget entry */}
+            {/* Categories with transactions but no budget amount set */}
             {pendingSetup.map((ps) => (
               <div 
                 key={ps.categoryId}
@@ -680,29 +679,6 @@ export default function Dashboard() {
                 </div>
                 <span className="text-xs text-amber-700 dark:text-amber-400 ml-2 flex-shrink-0">
                   {t('spent')}: {fc(ps.spent)}
-                </span>
-              </div>
-            ))}
-            {/* Budgets with amount 0 (auto-created but not configured) */}
-            {budgetsNotConfigured.map((budget) => (
-              <div 
-                key={budget.id}
-                className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800"
-                style={budget.category?.color ? {
-                  borderLeftWidth: '4px',
-                  borderLeftColor: budget.category.color
-                } : undefined}
-              >
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <span className="text-lg flex-shrink-0">
-                    {budget.category?.icon || '📋'}
-                  </span>
-                  <span className="text-xs sm:text-sm font-medium text-amber-900 dark:text-amber-200 truncate">
-                    {getCatName(budget.category)}
-                  </span>
-                </div>
-                <span className="text-xs text-amber-700 dark:text-amber-400 ml-2 flex-shrink-0">
-                  {t('spent')}: {fc(budget.spent)}
                 </span>
               </div>
             ))}
