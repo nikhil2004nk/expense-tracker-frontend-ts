@@ -18,10 +18,30 @@ export default function Register() {
   
   const schema = z
     .object({
-      name: z.string().min(2, t('name_min_2')),
-      email: z.string().min(1, t('email_required')).email(t('enter_valid_email')),
-      password: z.string().min(8, t('password_min_8')),
-      confirmPassword: z.string().min(8, t('confirm_password_min_8')),
+      name: z
+        .string()
+        .min(2, t('name_min_2'))
+        .max(100, t('name_max_100'))
+        .trim()
+        .regex(/^[a-zA-Z\s'-]+$/, t('name_valid_chars')),
+      email: z
+        .string()
+        .min(1, t('email_required'))
+        .trim()
+        .toLowerCase()
+        .email(t('enter_valid_email'))
+        .max(255, t('email_max_255')),
+      password: z
+        .string()
+        .min(8, t('password_min_8'))
+        .max(128, t('password_max_128'))
+        .regex(/[A-Z]/, t('password_uppercase'))
+        .regex(/[a-z]/, t('password_lowercase'))
+        .regex(/[0-9]/, t('password_number'))
+        .regex(/[^A-Za-z0-9]/, t('password_special')),
+      confirmPassword: z
+        .string()
+        .min(1, t('confirm_password_required')),
     })
     .refine((data) => data.password === data.confirmPassword, {
       message: t('passwords_do_not_match'),
@@ -45,7 +65,7 @@ export default function Register() {
     try {
       await registerUser({ name: values.name, email: values.email, password: values.password })
       setServerSuccess(t('registration_success'))
-      setTimeout(() => navigate('/login'), TIMING.REDIRECT_DELAY)
+      setTimeout(() => navigate('/login', { state: { email: values.email } }), TIMING.REDIRECT_DELAY)
     } catch (err: any) {
       setServerError(err?.message || t('registration_failed'))
     }

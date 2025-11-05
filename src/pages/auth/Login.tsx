@@ -12,7 +12,7 @@ import LanguageSelector from '../../components/LanguageSelector'
 
 export default function Login() {
   const navigate = useNavigate()
-  const location = useLocation() as { state?: { from?: { pathname: string } } }
+  const location = useLocation() as { state?: { from?: { pathname: string }, email?: string } }
   const { t } = useI18n()
   const { mounted, currentTheme, toggleTheme } = useTheme()
   
@@ -20,8 +20,13 @@ export default function Login() {
     email: z
       .string()
       .min(1, t('email_required'))
-      .email(t('enter_valid_email')),
-    password: z.string().min(8, t('password_min_8')),
+      .trim()
+      .toLowerCase()
+      .email(t('enter_valid_email'))
+      .max(255, t('email_max_255')),
+    password: z
+      .string()
+      .min(1, t('password_required')),
   })
   type FormData = z.infer<typeof schema>
   const [serverError, setServerError] = useState('')
@@ -29,6 +34,10 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: 'onTouched',
+    defaultValues: {
+      email: location.state?.email || '',
+      password: '',
+    },
   })
 
   async function onSubmit(values: FormData) {
