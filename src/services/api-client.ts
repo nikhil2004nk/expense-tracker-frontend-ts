@@ -17,7 +17,7 @@ const API_BASE = (() => {
   // Default to localhost in development
   const baseUrl = url || 'http://localhost:3000'
   
-  console.info('[API Client] Using API base URL:', baseUrl)
+ // console.info('[API Client] Using API base URL:', baseUrl)
   
   return baseUrl
 })()
