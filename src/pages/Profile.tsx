@@ -92,7 +92,7 @@ export default function Profile() {
     if (hasLower && hasUpper) score++
     if (hasNumber) score++
     if (hasSymbol) score++
-    const label = score <= 1 ? 'Weak' : score === 2 ? 'Fair' : score === 3 ? 'Good' : 'Strong'
+    const label = score <= 1 ? t('password_strength_weak') : score === 2 ? t('password_strength_fair') : score === 3 ? t('password_strength_good') : t('password_strength_strong')
     const color = score <= 1 ? 'bg-red-500' : score === 2 ? 'bg-yellow-500' : score === 3 ? 'bg-emerald-500' : 'bg-emerald-600'
     return { score, label, color }
   })()

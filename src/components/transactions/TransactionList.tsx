@@ -3,14 +3,15 @@ import { Link } from 'react-router-dom'
 import { fetchTransactions, deleteTransaction, seedDemoIfEmpty, type Transaction } from '../../services/transactions'
 import { fetchCategories, type Category } from '../../services/categories'
 import { useToast } from '../ToastProvider'
-import { LoaderCard, ConfirmModal } from '../common'
+import { LoaderCard, ConfirmModal, MonthPicker, SortDropdown } from '../common'
 import { useDebounce } from '../../hooks/useDebounce'
 import { getApiBaseUrl } from '../../services/api-client'
 import { useCurrency } from '../../contexts/CurrencyContext'
 import { useSettings } from '../../contexts/SettingsContext'
 import { formatDate } from '../../utils/date'
+import { timeAgo } from '../../utils/timeAgo'
 import { useI18n } from '../../contexts/I18nContext'
-import { DocumentTextIcon } from '@heroicons/react/24/outline'
+import { DocumentTextIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 
 export type TransactionListRef = {
   refresh: () => Promise<void>
@@ -28,8 +29,8 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState('')
-  const [month, setMonth] = useState('')
-  const [sortBy, setSortBy] = useState<'dateDesc' | 'dateAsc' | 'amountDesc' | 'amountAsc'>('dateDesc')
+  const [month, setMonth] = useState('') // Empty by default to show all transactions
+  const [sortBy, setSortBy] = useState<'dateDesc' | 'dateAsc' | 'amountDesc' | 'amountAsc' | 'createdDesc' | 'createdAsc'>('dateDesc')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
 
@@ -97,6 +98,35 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
     }
   }), [loadTransactions])
 
+  // Month navigation helpers
+  const handlePreviousMonth = () => {
+    if (!month) return
+    const [yStr, mStr] = month.split('-')
+    let y = parseInt(yStr)
+    let m = parseInt(mStr)
+    m = m - 1
+    if (m === 0) { m = 12; y = y - 1 }
+    setMonth(`${y}-${String(m).padStart(2, '0')}`)
+  }
+
+  const handleNextMonth = () => {
+    if (!month) return
+    const [yStr, mStr] = month.split('-')
+    let y = parseInt(yStr)
+    let m = parseInt(mStr)
+    m = m + 1
+    if (m === 13) { m = 1; y = y + 1 }
+    setMonth(`${y}-${String(m).padStart(2, '0')}`)
+  }
+
+  // Check if current month is selected
+  const isCurrentMonth = useMemo(() => {
+    if (!month) return false
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return month === currentMonth
+  }, [month])
+
   function handleDelete(id: string) {
     setDeleteConfirmId(id)
   }
@@ -126,10 +156,20 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
       if (sortBy === 'dateAsc') return a.date.localeCompare(b.date)
       if (sortBy === 'amountDesc') return b.amount - a.amount
       if (sortBy === 'amountAsc') return a.amount - b.amount
+      if (sortBy === 'createdDesc') {
+        const aCreated = a.createdAt || a.date
+        const bCreated = b.createdAt || b.date
+        return bCreated.localeCompare(aCreated)
+      }
+      if (sortBy === 'createdAsc') {
+        const aCreated = a.createdAt || a.date
+        const bCreated = b.createdAt || b.date
+        return aCreated.localeCompare(bCreated)
+      }
       return 0
     })
     return list
-  }, [transactions, debouncedCategoryFilter, sortBy])
+  }, [transactions, debouncedCategoryFilter, sortBy, getCategoryName])
 
   // Derived UI helpers
   const filteredTotalAmount = useMemo(() => filteredSorted.reduce((sum, t) => sum + t.amount, 0), [filteredSorted])
@@ -149,12 +189,15 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
         <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
         <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">{t('no_transactions')}</h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          {categoryFilter || month ? t('no_txn_match_filters') : t('get_started_add_first')}
+          {(categoryFilter || month) ? t('no_txn_match_filters') : t('get_started_add_first')}
         </p>
         <div className="mt-4 flex items-center justify-center gap-2">
           {(categoryFilter || month) && (
             <button
-              onClick={() => { setCategoryFilter(''); setMonth('') }}
+              onClick={() => { 
+                setCategoryFilter(''); 
+                setMonth('')
+              }}
               className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
             >
               {t('clear_filter')}
@@ -182,46 +225,80 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
             className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
           />
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              aria-label={t('select_month')}
-              className="w-full sm:w-auto rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
-            />
-            {month && (
+            {month ? (
+              <>
+                <button
+                  onClick={handlePreviousMonth}
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
+                  title={t('previous_month')}
+                  aria-label={t('previous_month')}
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+                <MonthPicker
+                  value={month}
+                  onChange={(value) => setMonth(value)}
+                />
+                {!isCurrentMonth && (
+                  <button
+                    onClick={handleNextMonth}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex-shrink-0"
+                    title={t('next_month')}
+                    aria-label={t('next_month')}
+                  >
+                    <ChevronRightIcon className="h-4 w-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setMonth('')}
+                  className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 flex-shrink-0 whitespace-nowrap"
+                  title={t('show_all') || 'Show all'}
+                >
+                  {t('show_all') || 'Show All'}
+                </button>
+              </>
+            ) : (
               <button
-                onClick={() => setMonth('')}
-                className="rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                onClick={() => {
+                  const d = new Date()
+                  const currentMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+                  setMonth(currentMonth)
+                }}
+                className="rounded-md border border-emerald-300 dark:border-emerald-700 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 flex-shrink-0 whitespace-nowrap font-medium"
+                title={t('filter_by_month') || 'Filter by month'}
               >
-                {t('clear_filter')}
+                📅 {t('filter_by_month') || 'Filter by Month'}
               </button>
             )}
           </div>
-          <select
+          <SortDropdown
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="w-full sm:w-auto rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="dateDesc">{t('date_desc')}</option>
-            <option value="dateAsc">{t('date_asc')}</option>
-            <option value="amountDesc">{t('amount_desc')}</option>
-            <option value="amountAsc">{t('amount_asc')}</option>
-          </select>
+            onChange={(value) => setSortBy(value as typeof sortBy)}
+            options={[
+              { value: 'dateDesc', label: t('date_desc') },
+              { value: 'dateAsc', label: t('date_asc') },
+              { value: 'amountDesc', label: t('amount_desc') },
+              { value: 'amountAsc', label: t('amount_asc') },
+              { value: 'createdDesc', label: t('newest') },
+              { value: 'createdAsc', label: t('oldest') },
+            ]}
+          />
         </div>
 
         {/* Summary bar */}
         <div className="flex items-center justify-between px-3 py-2 sm:px-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/60">
           <div className="text-xs sm:text-sm font-medium text-gray-800 dark:text-gray-200">
-            {filteredSorted.length} {t('transactions') || 'Transactions'}{monthTitle ? ` • ${monthTitle}` : ''}
-            {(categoryFilter || month) && (
-              <span className="ml-2 text-gray-500 dark:text-gray-400">{t('filters') || 'Filters'}:</span>
+            {filteredSorted.length} {t('transactions') || 'Transactions'}
+            {monthTitle ? (
+              <span className="ml-2 inline-flex items-center rounded px-2 py-0.5 text-[11px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{monthTitle}</span>
+            ) : (
+              <span className="ml-1 text-gray-500 dark:text-gray-400">({t('all_time') || 'All time'})</span>
             )}
             {categoryFilter && (
-              <span className="ml-2 inline-flex items-center rounded px-2 py-0.5 text-[11px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">{categoryFilter}</span>
-            )}
-            {monthTitle && (
-              <span className="ml-2 inline-flex items-center rounded px-2 py-0.5 text-[11px] bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">{monthTitle}</span>
+              <>
+                <span className="ml-2 text-gray-500 dark:text-gray-400">•</span>
+                <span className="ml-2 inline-flex items-center rounded px-2 py-0.5 text-[11px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">{categoryFilter}</span>
+              </>
             )}
           </div>
           <div className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-300">
@@ -256,7 +333,15 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
                       </span>
                       <span className="text-base font-semibold text-gray-900 dark:text-white">{fcs(tx.amount)}</span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{formatDate(tx.date, settings.dateFormat)}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(tx.date, settings.dateFormat)}</p>
+                      {tx.createdAt && (
+                        <>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{timeAgo(tx.createdAt)}</p>
+                        </>
+                      )}
+                    </div>
                     {tx.notes && <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{tx.notes}</p>}
                     {tx.receiptUrl && (
                       <a
@@ -293,7 +378,7 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
             <table className="min-w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 sticky top-0 z-10">
               <tr>
-                {[t('date'), t('category'), t('amount'), t('notes'), t('receipt'), t('actions')].map((h) => (
+                {[t('date'), t('category'), t('amount'), t('notes'), t('receipt'), t('created'), t('actions')].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
                 ))}
               </tr>
@@ -333,6 +418,15 @@ const TransactionList = forwardRef<TransactionListRef, TransactionListProps>(({ 
                       >
                         {t('view')}
                       </a>
+                    ) : (
+                      <span className="text-gray-400 dark:text-gray-500">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {tItem.createdAt ? (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium whitespace-nowrap">
+                        {timeAgo(tItem.createdAt)}
+                      </span>
                     ) : (
                       <span className="text-gray-400 dark:text-gray-500">—</span>
                     )}

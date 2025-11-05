@@ -27,6 +27,8 @@ export type Transaction = {
   date: string
   notes?: string
   receiptUrl?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 /**
@@ -34,7 +36,7 @@ export type Transaction = {
  */
 export type CreateTransactionDto = {
   amount: number
-  categoryId?: string
+  categoryId: string
   date: string
   notes?: string
   receiptUrl?: string

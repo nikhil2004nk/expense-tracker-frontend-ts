@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Modal, ConfirmModal } from '../components/common'
+import { Modal, ConfirmModal, MonthPicker } from '../components/common'
 import { useToast } from '../components/ToastProvider'
 import { useCurrency } from '../contexts/CurrencyContext'
 import { budgetService } from '../services/budgets'
@@ -15,7 +15,10 @@ import {
   TrashIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline'
 import { useSettings } from '../contexts/SettingsContext'
 import { TIMING } from '../config/constants'
@@ -71,6 +74,35 @@ export default function Budgets() {
     if (m === 0) { m = 12; y = y - 1 }
     return `${y}-${String(m).padStart(2, '0')}`
   }
+
+  const getNextMonthKey = (mm: string) => {
+    const [yStr, mStr] = mm.split('-')
+    let y = parseInt(yStr)
+    let m = parseInt(mStr)
+    m = m + 1
+    if (m === 13) { m = 1; y = y + 1 }
+    return `${y}-${String(m).padStart(2, '0')}`
+  }
+
+  const handlePreviousMonth = () => {
+    setSelectedMonth(getPrevMonthKey(selectedMonth))
+  }
+
+  const handleNextMonth = () => {
+    setSelectedMonth(getNextMonthKey(selectedMonth))
+  }
+
+  const handleCurrentMonth = () => {
+    const d = new Date()
+    setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  // Check if current month is selected
+  const isCurrentMonth = useMemo(() => {
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return selectedMonth === currentMonth
+  }, [selectedMonth])
 
   const handleCopyLastMonth = async () => {
     if (isCopying) return
@@ -328,56 +360,105 @@ export default function Budgets() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('budgets_title_page')} - {formattedMonth}</h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('budgets_subtitle')}</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('budgets_title_page')}</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('budgets_subtitle')}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              title={t('refresh')}
+            >
+              <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+            </button>
+            <button
+              onClick={handleCopyLastMonth}
+              disabled={loading || isCopying}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title={t('copy_last_month') || 'Copy last month'}
+            >
+              <RectangleStackIcon className={`h-4 w-4 ${isCopying ? 'animate-pulse' : ''}`} />
+              <span className="hidden sm:inline">{t('copy_last_month') || 'Copy last month'}</span>
+            </button>
+            <button
+              onClick={handleOpenModal}
+              disabled={loading}
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {t('loading_budgets')}
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  {t('add_budget')}
+                </>
+              )}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="hidden sm:block text-xs text-gray-600 dark:text-gray-300">
-            {t('select_month') || 'Select month'}
-          </label>
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="h-9 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200"
-            aria-label="Select month"
-          />
-          <button
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-            title={t('refresh')}
-          >
-            <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
-          </button>
-          <button
-            onClick={handleCopyLastMonth}
-            disabled={loading || isCopying}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={t('copy_last_month') || 'Copy last month'}
-          >
-            <RectangleStackIcon className={`h-4 w-4 ${isCopying ? 'animate-pulse' : ''}`} />
-            <span className="hidden sm:inline">{t('copy_last_month') || 'Copy last month'}</span>
-          </button>
-          <button
-            onClick={handleOpenModal}
-            disabled={loading}
-            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {t('loading_budgets')}
-              </>
-            ) : (
-              <>
-                <PlusIcon className="h-4 w-4 mr-2" />
-                {t('add_budget')}
-              </>
-            )}
-          </button>
+
+        {/* Enhanced Calendar Navigation */}
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800/50 p-3 sm:p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Month Display & Navigation */}
+            <div className="flex-1 flex items-center justify-between sm:justify-start gap-2">
+              <button
+                onClick={handlePreviousMonth}
+                className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                title={t('previous_month')}
+                aria-label={t('previous_month')}
+              >
+                <ChevronLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+
+              <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white dark:bg-gray-800 rounded-lg border border-emerald-200 dark:border-emerald-700/50 shadow-sm">
+                <CalendarIcon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 text-center sm:text-left">
+                  <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{t('showing')}</span>
+                  <span className="text-sm sm:text-lg font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                    {formattedMonth}
+                  </span>
+                  <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{t('budgets_title')}</span>
+                </div>
+              </div>
+
+              {!isCurrentMonth && (
+                <button
+                  onClick={handleNextMonth}
+                  className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                  title={t('next_month')}
+                  aria-label={t('next_month')}
+                >
+                  <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleCurrentMonth}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow font-medium text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                title={t('go_to_current_month')}
+              >
+                <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">{t('current_month') || 'Today'}</span>
+                <span className="sm:hidden">Today</span>
+              </button>
+
+              <MonthPicker
+                value={selectedMonth}
+                onChange={setSelectedMonth}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

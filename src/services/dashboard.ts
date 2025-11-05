@@ -221,9 +221,9 @@ export async function fetchDashboardData(options: { signal?: AbortSignal; month?
       .sort((a, b) => b.value - a.value)
   }
 
-  // Get recent transactions (last 5 overall) and month-filtered (last 5 of selected month)
+  // Get recent transactions (last 5 overall) and all transactions for selected month (for filtering)
   const recentTransactions = allTransactions.slice(0, 5)
-  const recentTransactionsMonth = monthFilteredTransactions.slice(0, 5)
+  const recentTransactionsMonth = monthFilteredTransactions // Return all transactions for the selected month
 
   // Get unique categories
   const categoryCount = new Set(allTransactions.map(t => t.category?.name || 'Uncategorized')).size

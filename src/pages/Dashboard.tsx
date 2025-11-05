@@ -12,12 +12,13 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import { LoaderCard } from '../components/common'
+import { LoaderCard, MonthPicker } from '../components/common'
 import { useCurrency } from '../contexts/CurrencyContext'
 import { fetchDashboardData, type DashboardSummary } from '../services/dashboard'
 import { Link } from 'react-router-dom'
 import { useSettings } from '../contexts/SettingsContext'
 import { formatDate } from '../utils/date'
+import { timeAgo } from '../utils/timeAgo'
 import { useI18n } from '../contexts/I18nContext'
 import { fetchCategories, type Category } from '../services/categories'
 import { CHART_COLORS, TIMING } from '../config/constants'
@@ -33,6 +34,9 @@ import {
   RectangleStackIcon,
   ExclamationTriangleIcon,
   PlusIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CalendarIcon,
 } from '@heroicons/react/24/outline'
 
 export default function Dashboard() {
@@ -114,6 +118,36 @@ export default function Dashboard() {
     }, TIMING.REFRESH_DURATION)
   }
 
+  const handlePreviousMonth = () => {
+    const [yStr, mStr] = selectedMonth.split('-')
+    let y = parseInt(yStr)
+    let m = parseInt(mStr)
+    m = m - 1
+    if (m === 0) { m = 12; y = y - 1 }
+    setSelectedMonth(`${y}-${String(m).padStart(2, '0')}`)
+  }
+
+  const handleNextMonth = () => {
+    const [yStr, mStr] = selectedMonth.split('-')
+    let y = parseInt(yStr)
+    let m = parseInt(mStr)
+    m = m + 1
+    if (m === 13) { m = 1; y = y + 1 }
+    setSelectedMonth(`${y}-${String(m).padStart(2, '0')}`)
+  }
+
+  const handleCurrentMonth = () => {
+    const d = new Date()
+    setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+
+  // Check if current month is selected
+  const isCurrentMonth = useMemo(() => {
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    return selectedMonth === currentMonth
+  }, [selectedMonth])
+
   // Cleanup refresh timer on unmount
   useEffect(() => {
     return () => {
@@ -138,11 +172,14 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')} - {formattedMonth}</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('dashboard_subtitle') || 'Overview of your expenses and budgets'}</p>
+          </div>
           <button
             onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             title={t('refresh')}
           >
             <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -157,11 +194,14 @@ export default function Dashboard() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')} - {formattedMonth}</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('dashboard_subtitle') || 'Overview of your expenses and budgets'}</p>
+          </div>
           <button
             onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             title={t('refresh')}
           >
             <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -184,11 +224,14 @@ export default function Dashboard() {
   if (!dashboardData) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')} - {formattedMonth}</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('dashboard_subtitle') || 'Overview of your expenses and budgets'}</p>
+          </div>
           <button
             onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             title={t('refresh')}
           >
             <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -259,16 +302,80 @@ export default function Dashboard() {
   if (dashboardData && dashboardData.transactionCount === 0) {
     return (
       <div className="space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')} - {formattedMonth}</h1>
-          <button
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-            title={t('refresh')}
-          >
-            <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
-          </button>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('dashboard_subtitle') || 'Overview of your expenses and budgets'}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRefresh}
+                className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                title={t('refresh')}
+              >
+                <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Enhanced Calendar Navigation */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800/50 p-3 sm:p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* Month Display & Navigation */}
+              <div className="flex-1 flex items-center justify-between sm:justify-start gap-2">
+                <button
+                  onClick={handlePreviousMonth}
+                  className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                  title={t('previous_month')}
+                  aria-label={t('previous_month')}
+                >
+                  <ChevronLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+
+                <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white dark:bg-gray-800 rounded-lg border border-emerald-200 dark:border-emerald-700/50 shadow-sm">
+                  <CalendarIcon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                  <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 text-center sm:text-left">
+                    <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{t('showing')}</span>
+                    <span className="text-sm sm:text-lg font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                      {formattedMonth}
+                    </span>
+                    <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{t('dashboard')}</span>
+                  </div>
+                </div>
+
+                {!isCurrentMonth && (
+                  <button
+                    onClick={handleNextMonth}
+                    className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                    title={t('next_month')}
+                    aria-label={t('next_month')}
+                  >
+                    <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  onClick={handleCurrentMonth}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow font-medium text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                  title={t('go_to_current_month')}
+                >
+                  <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <span className="hidden sm:inline">{t('current_month') || 'Today'}</span>
+                  <span className="sm:hidden">Today</span>
+                </button>
+
+                <MonthPicker
+                  value={selectedMonth}
+                  onChange={setSelectedMonth}
+                />
+              </div>
+            </div>
+          </div>
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 sm:p-6 md:p-8 text-center shadow-sm">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
@@ -340,26 +447,79 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')} - {formattedMonth}</h1>
-        <div className="flex items-center gap-2">
-          <input
-            type="month"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm text-gray-900 dark:text-white"
-            aria-label={t('select_month')}
-            title={t('select_month')}
-          />
-          
-          <button
-            onClick={handleRefresh}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-            title={t('refresh')}
-          >
-            <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
-          </button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white">{t('dashboard')}</h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">{t('dashboard_subtitle') || 'Overview of your expenses and budgets'}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefresh}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+              title={t('refresh')}
+            >
+              <ArrowPathIcon className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{t('refresh') || 'Refresh'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Enhanced Calendar Navigation */}
+        <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800/50 p-3 sm:p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Month Display & Navigation */}
+            <div className="flex-1 flex items-center justify-between sm:justify-start gap-2">
+              <button
+                onClick={handlePreviousMonth}
+                className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                title={t('previous_month')}
+                aria-label={t('previous_month')}
+              >
+                <ChevronLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+
+              <div className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-white dark:bg-gray-800 rounded-lg border border-emerald-200 dark:border-emerald-700/50 shadow-sm">
+                <CalendarIcon className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                <div className="flex flex-col sm:flex-row items-center gap-0.5 sm:gap-2 text-center sm:text-left">
+                  <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{t('showing')}</span>
+                  <span className="text-sm sm:text-lg font-semibold text-gray-900 dark:text-white whitespace-nowrap">
+                    {formattedMonth}
+                  </span>
+                  <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{t('dashboard')}</span>
+                </div>
+              </div>
+
+              {!isCurrentMonth && (
+                <button
+                  onClick={handleNextMonth}
+                  className="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                  title={t('next_month')}
+                  aria-label={t('next_month')}
+                >
+                  <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleCurrentMonth}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:border-emerald-400 dark:hover:border-emerald-600 transition-all shadow-sm hover:shadow font-medium text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                title={t('go_to_current_month')}
+              >
+                <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">{t('current_month') || 'Today'}</span>
+                <span className="sm:hidden">Today</span>
+              </button>
+
+              <MonthPicker
+                value={selectedMonth}
+                onChange={setSelectedMonth}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -436,36 +596,54 @@ export default function Dashboard() {
                 ? (t('last_6_months') || 'Last 6 months')
                 : (compareEnabled && compareMonthKey ? (t('monthly_comparison') || 'Monthly comparison') : t('monthly_expenses'))}
             </h2>
-            <div className="flex items-center gap-2">
-              <label className="hidden sm:flex items-center gap-1 text-xs sm:text-sm text-gray-700 dark:text-gray-200" title={t('compare')}>
-                <input
-                  type="checkbox"
-                  checked={compareEnabled}
-                  onChange={(e) => {
-                    setCompareEnabled(e.target.checked)
-                    if (e.target.checked) setShowLastSixMonths(false)
-                  }}
-                />
-                <span>{t('compare') || 'Compare'}</span>
-              </label>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Compare Toggle */}
+              <button
+                onClick={() => {
+                  const newValue = !compareEnabled
+                  setCompareEnabled(newValue)
+                  if (newValue) {
+                    setShowLastSixMonths(false)
+                    // Set compare month to previous month by default
+                    if (!compareMonth) {
+                      const [yStr, mStr] = selectedMonth.split('-')
+                      let y = parseInt(yStr)
+                      let m = parseInt(mStr)
+                      m = m - 1
+                      if (m === 0) { m = 12; y = y - 1 }
+                      setCompareMonth(`${y}-${String(m).padStart(2, '0')}`)
+                    }
+                  }
+                }}
+                className={`rounded-md border px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
+                  compareEnabled 
+                    ? 'border-emerald-500 bg-emerald-500 text-white' 
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
+              >
+                {t('compare') || 'Compare'}
+              </button>
+
+              {/* Month Picker when compare is enabled */}
               {compareEnabled && (
-                <input
-                  type="month"
-                  value={compareMonth}
-                  onChange={(e) => setCompareMonth(e.target.value)}
-                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs sm:text-sm text-gray-900 dark:text-white"
-                  aria-label={t('select_compare_month')}
-                  title={t('select_compare_month')}
+                <MonthPicker
+                  value={compareMonth || selectedMonth}
+                  onChange={setCompareMonth}
                 />
               )}
+
+              {/* Last 6 Months Toggle */}
               <button
                 onClick={() => setShowLastSixMonths((v) => {
                   const next = !v
                   if (next) setCompareEnabled(false)
                   return next
                 })}
-                className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs sm:text-sm ${showLastSixMonths ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'}`}
-                title={t('last_6_months') || 'Last 6 months'}
+                className={`rounded-md border px-3 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
+                  showLastSixMonths 
+                    ? 'border-blue-500 bg-blue-500 text-white' 
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600'
+                }`}
               >
                 {t('last_6_months') || 'Last 6 months'}
               </button>
@@ -538,21 +716,21 @@ export default function Dashboard() {
         </div>
 
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 sm:p-4 shadow-sm">
-          <h2 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('expense_dist')}</h2>
+          <h2 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('expense_dist')} - {formattedMonth}</h2>
           {categoryData.length > 0 ? (
             <div className="h-56 sm:h-64 md:h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={categoryData.map((e) => ({ ...e, name: findLocalizedNameByAny(e.name) }))}
+                    data={categoryData.map((e) => ({ ...e, displayName: findLocalizedNameByAny(e.name), originalName: e.name }))}
                     dataKey="value"
-                    nameKey="name"
+                    nameKey="displayName"
                     cx="50%"
                     cy="50%"
                     outerRadius={typeof window !== 'undefined' && window.innerWidth < 640 ? 60 : 90}
                     label={(entry: any) => `${entry.percentage.toFixed(1)}%`}
                     labelLine={false}
-                    onClick={(d: any) => setSelectedCategory(d?.name || null)}
+                    onClick={(d: any) => setSelectedCategory(d?.originalName || null)}
                   >
                     {categoryData.map((entry, index) => {
                       // Try to find matching budget to get category color (match against any localized name)
@@ -581,7 +759,18 @@ export default function Dashboard() {
       {(recentTransactionsMonth?.length ?? 0) > 0 && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 sm:p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h2 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">{t('recent_transactions')}</h2>
+            <h2 className="text-sm sm:text-base font-medium text-gray-900 dark:text-white">
+              {selectedCategory ? t('filtered_transactions') || 'Filtered Transactions' : t('recent_transactions')}
+              <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                ({(() => {
+                  const filtered = selectedCategory 
+                    ? recentTransactionsMonth.filter(rt => matchesName(rt.category, selectedCategory))
+                    : recentTransactionsMonth
+                  const displayCount = selectedCategory ? filtered.length : Math.min(5, filtered.length)
+                  return `${displayCount} of ${recentTransactionsMonth.length}`
+                })()})
+              </span>
+            </h2>
             <Link 
               to="/transactions" 
               className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:underline"
@@ -590,40 +779,55 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="space-y-2">
-            {(selectedCategory ? recentTransactionsMonth.filter(rt => (rt.category?.name || 'Uncategorized') === selectedCategory) : recentTransactionsMonth).map((transaction) => (
-              <div 
-                key={transaction.id} 
-                className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span 
-                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                      style={transaction.category?.color ? {
-                        backgroundColor: `${transaction.category.color}15`,
-                        color: transaction.category.color,
-                        borderLeft: `3px solid ${transaction.category.color}`
-                      } : {
-                        backgroundColor: 'rgb(243 244 246)',
-                        color: 'rgb(75 85 99)'
-                      }}
-                    >
-                      {transaction.category?.icon && <span className="mr-1">{transaction.category.icon}</span>}
-                      {getCatName(transaction.category)}
-                    </span>
-                    {transaction.notes && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{transaction.notes}</span>
-                    )}
+            {(() => {
+              const filtered = selectedCategory 
+                ? recentTransactionsMonth.filter(rt => matchesName(rt.category, selectedCategory))
+                : recentTransactionsMonth.slice(0, 5)
+              return filtered.map((transaction) => (
+                <div 
+                  key={transaction.id} 
+                  className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                        style={transaction.category?.color ? {
+                          backgroundColor: `${transaction.category.color}15`,
+                          color: transaction.category.color,
+                          borderLeft: `3px solid ${transaction.category.color}`
+                        } : {
+                          backgroundColor: 'rgb(243 244 246)',
+                          color: 'rgb(75 85 99)'
+                        }}
+                      >
+                        {transaction.category?.icon && <span className="mr-1">{transaction.category.icon}</span>}
+                        {getCatName(transaction.category)}
+                      </span>
+                      {transaction.notes && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{transaction.notes}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {formatDate(transaction.date, settings.dateFormat)}
+                      </div>
+                      {transaction.createdAt && (
+                        <>
+                          <span className="text-xs text-gray-400 dark:text-gray-500">•</span>
+                          <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                            {timeAgo(transaction.createdAt)}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {formatDate(transaction.date, settings.dateFormat)}
+                  <div className="text-sm font-semibold ml-4 text-rose-700 dark:text-rose-400">
+                    -{fc(Math.abs(transaction.amount))}
                   </div>
                 </div>
-                <div className="text-sm font-semibold ml-4 text-rose-700 dark:text-rose-400">
-                  -{fc(Math.abs(transaction.amount))}
-                </div>
-              </div>
-            ))}
+              ))
+            })()}
             {selectedCategory && (
               <div className="pt-2">
                 <button onClick={() => setSelectedCategory(null)} className="text-xs text-gray-600 dark:text-gray-300 hover:underline">
@@ -720,8 +924,8 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-          <div className="space-y-3">
-            {budgets.filter(b => b.budget > 0).slice(0, 5).map((budget) => {
+          <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent">
+            {budgets.filter(b => b.budget > 0).map((budget) => {
               const percentage = budget.budget > 0 ? (budget.spent / budget.budget) * 100 : 0
               const isOverBudget = percentage > 100
               const barColor = budget.category?.color || (isOverBudget ? '#ef4444' : percentage > threshold ? '#f59e0b' : '#10b981')

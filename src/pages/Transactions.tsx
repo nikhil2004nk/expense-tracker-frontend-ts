@@ -12,7 +12,7 @@ export default function Transactions() {
   const listRef = useRef<TransactionListRef>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  async function handleSubmit(payload: { amount: number; categoryId?: string; date: string; notes: string; receiptUrl: string }) {
+  async function handleSubmit(payload: { amount: number; categoryId: string; date: string; notes: string; receiptUrl: string }) {
     setSaving(true)
     try {
       if (editing) {

@@ -121,7 +121,7 @@ export default function Sidebar({ open, onClose }: { open: boolean; onClose: () 
           <span className="font-semibold text-gray-900 dark:text-white">{t('navigation')}</span>
           <button
             className="lg:hidden rounded-md p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
-            aria-label="Close sidebar"
+            aria-label={t('close_sidebar')}
             onClick={onClose}
           >
             <XMarkIcon className="h-5 w-5" />

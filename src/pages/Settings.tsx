@@ -51,6 +51,25 @@ export default function Settings() {
     draft.budgetAlertThreshold !== settings.budgetAlertThreshold ||
     draftTheme !== initialTheme
 
+  // Track individual field changes
+  const fieldChanges = {
+    theme: draftTheme !== initialTheme,
+    language: draft.language !== settings.language,
+    dateFormat: draft.dateFormat !== settings.dateFormat,
+    fiscalYearStart: draft.fiscalYearStart !== settings.fiscalYearStart,
+    budgetAlertThreshold: draft.budgetAlertThreshold !== settings.budgetAlertThreshold,
+    notifications: draft.notifications !== settings.notifications,
+    emailReports: draft.emailReports !== settings.emailReports,
+    autoBackup: draft.autoBackup !== settings.autoBackup,
+  }
+
+  // Component to show inline warning message
+  const FieldChangeWarning = () => (
+    <div className="mt-2">
+      <p className="text-xs text-amber-600 dark:text-amber-400">{t('save_to_apply_changes')}</p>
+    </div>
+  )
+
   const handleSave = async () => {
     setIsSaving(true)
     try {
@@ -139,11 +158,6 @@ export default function Settings() {
       </div>
 
       <div className="space-y-4 sm:space-y-6">
-        {hasSettingsChanges && (
-          <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-amber-900 dark:text-amber-200">{t('save_to_apply_changes')}</p>
-          </div>
-        )}
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('theme_preference')}</h2>
           <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3">{t('theme_hint')}</p>
@@ -172,6 +186,7 @@ export default function Settings() {
               </button>
             ))}
           </div>
+          {fieldChanges.theme && <FieldChangeWarning />}
         </div>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 sm:p-6 shadow-sm">
           <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4">{t('regional_preferences')}</h2>
@@ -189,6 +204,7 @@ export default function Settings() {
                 <option value="hi">हिन्दी (Hindi)</option>
                 <option value="mr">मराठी (Marathi)</option>
               </select>
+              {fieldChanges.language && <FieldChangeWarning />}
             </div>
 
             <div>
@@ -203,6 +219,7 @@ export default function Settings() {
                 <option value="MM/DD/YYYY">MM/DD/YYYY (12/31/2024)</option>
                 <option value="YYYY-MM-DD">YYYY-MM-DD (2024-12-31)</option>
               </select>
+              {fieldChanges.dateFormat && <FieldChangeWarning />}
             </div>
 
             <div>
@@ -219,6 +236,7 @@ export default function Settings() {
                 <option value="october">{t('october')}</option>
               </select>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('fiscal_hint')}</p>
+              {fieldChanges.fiscalYearStart && <FieldChangeWarning />}
             </div>
           </div>
         </div>
@@ -242,6 +260,7 @@ export default function Settings() {
                 <span className="text-sm font-medium text-gray-900 dark:text-white min-w-[3rem] text-right">{draft.budgetAlertThreshold}%</span>
               </div>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('budget_alert_hint')}</p>
+              {fieldChanges.budgetAlertThreshold && <FieldChangeWarning />}
             </div>
           </div>
         </div>
@@ -278,6 +297,11 @@ export default function Settings() {
                 <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${draft.notifications ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
+            {fieldChanges.notifications && (
+              <div className="sm:col-span-2">
+                <FieldChangeWarning />
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex-1 min-w-0">
@@ -291,6 +315,11 @@ export default function Settings() {
                 <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${draft.emailReports ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
+            {fieldChanges.emailReports && (
+              <div className="sm:col-span-2">
+                <FieldChangeWarning />
+              </div>
+            )}
           </div>
         </div>
 
@@ -301,7 +330,7 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font.medium text-gray-900 dark:text-white">{t('auto_backup')}</h3>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('auto_backup')}</h3>
                 <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t('auto_backup_hint')}</p>
               </div>
               <button
@@ -311,6 +340,11 @@ export default function Settings() {
                 <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${draft.autoBackup ? 'translate-x-5' : 'translate-x-0'}`} />
               </button>
             </div>
+            {fieldChanges.autoBackup && (
+              <div className="sm:col-span-2">
+                <FieldChangeWarning />
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex-1 min-w-0">

@@ -7,7 +7,7 @@ import { getApiBaseUrl } from '../../services/api-client'
 import { useCurrency } from '../../contexts/CurrencyContext'
 import { fetchCategories, createCategory, type Category } from '../../services/categories'
 import { useToast } from '../ToastProvider'
-import { Loader, Modal } from '../common'
+import { Loader, Modal, DatePicker } from '../common'
 import { useI18n } from '../../contexts/I18nContext'
 import { useSettings } from '../../contexts/SettingsContext'
 import { PlusIcon, ChevronDownIcon, ArrowUpTrayIcon, DocumentTextIcon } from '@heroicons/react/24/outline'
@@ -51,7 +51,7 @@ export default function TransactionForm({
   submitting,
 }: {
   defaultValues?: { amount: number; categoryId?: string; date: string; notes?: string; receiptUrl?: string }
-  onSubmit: (payload: { amount: number; categoryId?: string; date: string; notes: string; receiptUrl: string }) => Promise<void>
+  onSubmit: (payload: { amount: number; categoryId: string; date: string; notes: string; receiptUrl: string }) => Promise<void>
   submitting: boolean
 }) {
   const { t } = useI18n()
@@ -73,7 +73,7 @@ export default function TransactionForm({
         .number()
         .refine((v) => !Number.isNaN(v), { message: t('amount_required') })
         .nonnegative(t('amount_nonnegative')),
-      categoryId: z.string().optional(),
+      categoryId: z.string().min(1, t('category_required') || 'Category is required'),
       date: z.string().min(1, t('date_required'))
         .refine((s) => !Number.isNaN(Date.parse(s)), { message: t('invalid_date') })
         .refine((s) => s >= minDate, { message: `${t('date_min_prefix')} ${minDate}` })
@@ -146,7 +146,7 @@ export default function TransactionForm({
     try {
       const payload = { 
         amount: Number(values.amount), 
-        categoryId: values.categoryId || undefined, 
+        categoryId: values.categoryId, 
         date: values.date, 
         notes: values.notes || '', 
         receiptUrl 
@@ -261,7 +261,7 @@ export default function TransactionForm({
         color: newCat.color || undefined,
       })
       await loadCategories()
-      setValue('categoryId', created.id)
+      setValue('categoryId', created.id, { shouldValidate: true })
       setIsCatModalOpen(false)
       resetNewCatForm()
       show(t('category_created') || 'Category created', { type: 'success' })
@@ -370,10 +370,16 @@ export default function TransactionForm({
               aria-expanded={catOpen}
             >
               <span className="flex items-center gap-2 truncate">
-                <span className="inline-flex items-center justify-center w-5 h-5 rounded" style={selectedCategory?.color ? { backgroundColor: `${selectedCategory.color}15`, color: selectedCategory.color } : {}}>
-                  {selectedCategory?.icon || '📁'}
-                </span>
-                {selectedCategory ? getCategoryName(selectedCategory) : t('no_category_option')}
+                {selectedCategory ? (
+                  <>
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded" style={{ backgroundColor: `${selectedCategory.color}15`, color: selectedCategory.color }}>
+                      {selectedCategory.icon}
+                    </span>
+                    {getCategoryName(selectedCategory)}
+                  </>
+                ) : (
+                  <span className="text-gray-500 dark:text-gray-400">{t('select_category') || 'Select a category'}</span>
+                )}
               </span>
               <ChevronDownIcon className="h-4 w-4 flex-shrink-0" />
             </button>
@@ -389,12 +395,6 @@ export default function TransactionForm({
                   />
                 </div>
                 <ul role="listbox" className="max-h-56 overflow-auto py-1">
-                  <li>
-                    <button type="button" className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2" onClick={() => { setValue('categoryId', ''); setCatOpen(false) }}>
-                      <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500">—</span>
-                      {t('no_category_option')}
-                    </button>
-                  </li>
                   {categories
                     .filter(c => !catQuery || c.name.toLowerCase().includes(catQuery.toLowerCase()))
                     .map((c) => (
@@ -404,7 +404,7 @@ export default function TransactionForm({
                           role="option"
                           aria-selected={c.id === selectedCategoryId}
                           className={`w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 ${c.id === selectedCategoryId ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}
-                          onClick={() => { setValue('categoryId', c.id); setCatOpen(false) }}
+                          onClick={() => { setValue('categoryId', c.id, { shouldValidate: true }); setCatOpen(false) }}
                         >
                           <span className="inline-flex items-center justify-center w-5 h-5 rounded" style={c.color ? { backgroundColor: `${c.color}15`, color: c.color } : {}}>
                             {c.icon || '📁'}
@@ -438,66 +438,54 @@ export default function TransactionForm({
             {t('date_label')}
           </label>
           <div className="space-y-2">
-            <input
-              id="date"
-              type="date"
-              min={getMinDateISO()}
-              max={getTodayISO()}
-              className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white sm:text-sm ${
-                errors.date ? 'border-red-300 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
-              {...register('date')}
-              onBlur={(e) => {
-                const v = e.currentTarget.value
-                if (!v) return
-                const today = getTodayISO()
-                const minDate = getMinDateISO()
-                if (v < minDate) setValue('date', minDate)
-                if (v > today) setValue('date', today)
-              }}
+            <DatePicker
+              value={watch('date') || ''}
+              onChange={(value) => setValue('date', value, { shouldValidate: true })}
+              minDate={getMinDateISO()}
+              maxDate={getTodayISO()}
             />
             <div className="flex flex-wrap gap-2">
               <button 
                 type="button" 
-                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => setValue('date', getTodayISO())}
+                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => setValue('date', getTodayISO(), { shouldValidate: true })}
               >
                 {t('today')}
               </button>
               <button 
                 type="button" 
-                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 onClick={() => {
                   const d = new Date()
                   d.setDate(d.getDate() - 1)
                   d.setHours(0, 0, 0, 0)
-                  setValue('date', formatLocalISODate(d))
+                  setValue('date', formatLocalISODate(d), { shouldValidate: true })
                 }}
               >
                 {t('yesterday')}
               </button>
               <button 
                 type="button" 
-                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 onClick={() => {
                   const d = new Date()
                   d.setDate(d.getDate() - 7)
                   d.setHours(0, 0, 0, 0)
                   const iso = formatLocalISODate(d)
                   const minDate = getMinDateISO()
-                  setValue('date', iso < minDate ? minDate : iso)
+                  setValue('date', iso < minDate ? minDate : iso, { shouldValidate: true })
                 }}
               >
                 {t('seven_days_ago')}
               </button>
               <button 
                 type="button" 
-                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 onClick={() => {
                   const d = new Date()
                   d.setDate(1)
                   d.setHours(0, 0, 0, 0)
-                  setValue('date', formatLocalISODate(d))
+                  setValue('date', formatLocalISODate(d), { shouldValidate: true })
                 }}
               >
                 {t('start_of_month')}
